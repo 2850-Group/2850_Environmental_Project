@@ -3,14 +3,14 @@
 A story is considered "done" only when ALL of the following is true:
 
 ## Working and Verified
-- acceptance criteria manually checked 
+- Acceptance criteria manually checked 
 - At least one failure case handled
 - No Crashes - errors return meaninful responses
 
 ## Code Quality and Baseline
 - Naming and formatting follows class standard (no klint or detekt errors)
 - Route is thin (business logic not embedded in routing)
-- NO unsafe !! without justification
+- No unsafe !! without justification
 - No obvious duplicated logic
 
 ## Testing
