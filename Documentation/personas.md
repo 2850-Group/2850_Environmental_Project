@@ -78,7 +78,85 @@ Do not care about crops in other countries
 
 ---
 
-## Persona 3: [Name] [Role]
+## Persona 3: Emma - Smallholder Farmer
+
+### Context and Role
+
+- Role: Farmer growing crops for local markets
+- Environment: Out in the field, often with poor internet connection
+- Trigger: Noticing unusual spots or damage on her crops and wanting to know if it's serious
+
+### Goals and Success
+
+#### Primary Goal
+- To quickly identify whether her crops are affected and how serious it is, so she can act before it spreads to the rest of her field
+
+#### Failures
+- Loses an entire harvest because the disease was caught too late
+- Can't use the app in the field due to no signal
+
+
+### Pain Points
+- Not a tech-savvy user, finds complicated apps frustrating
+- Poor connectivity in rural areas
+- Can't always tell the difference between pest damage and disease
+
+
+#### Workarounds
+- Needs clear, plain-language advice on what to do next
+- Needs the app to work with low or no connectivity
+
+
+### Constraints and Non-Goals
+
+#### Constraints
+- Limited smartphone experience
+- Unreliable internet access in the field
+
+
+#### Non-Goals
+- Doesn't need detailed scientific classification of the disease
+- Not responsible for distribution or wider outbreak tracking
+
+---
+
+## Persona X: Dr Charles
+
+### Context and Role
+
+- Role: Researcher monitoring pest and disease outbreak trends across regions
+- Environment: University or office, reviewing data collected from multiple farms
+- Trigger: Wants to analyse outbreak patterns over time to inform policy or intervention
+
+### Goals and Success
+
+#### Primary Goal
+- To access historical data and trend reports across multiple sites to understand how diseases are spreading and why
+
+#### Failures
+- Data is too limited or inconsistent to draw meaningful conclusions
+Can't filter by region, crop type, or time period
+
+
+### Pain Points
+- Dashboard doesn't show enough detail for research purposes
+- No way to export data for use in external tools
+
+#### Workarounds
+- Needs filtering by date range, location, and crop type
+Needs to be able to download data as a CSV or similar
+
+### Constraints and Non-Goals
+
+#### Constraints
+- Needs reliable, timestamped, consistent data
+- Works across multiple regions and datasets
+
+#### Non-Goals
+- Not responsible for alerting shops or distributors
+
+---
+## Persona X: [Name & Role]
 
 ### Context and Role
 
@@ -109,5 +187,96 @@ Do not care about crops in other countries
 -
 
 ---
+## Persona X: [Name & Role]
 
-## Persona 4+: [Add more as needed]
+### Context and Role
+
+- Role:
+- Environment:
+- Trigger:
+
+### Goals and Success
+
+#### Primary Goal
+
+#### Failures
+-
+
+### Pain Points
+
+-
+
+#### Workarounds
+-
+
+### Constraints and Non-Goals
+
+#### Constraints
+-
+
+#### Non-Goals
+-
+
+---
+## Persona X: [Name & Role]
+
+### Context and Role
+
+- Role:
+- Environment:
+- Trigger:
+
+### Goals and Success
+
+#### Primary Goal
+
+#### Failures
+-
+
+### Pain Points
+
+-
+
+#### Workarounds
+-
+
+### Constraints and Non-Goals
+
+#### Constraints
+-
+
+#### Non-Goals
+-
+
+---
+## Persona X: [Name & Role]
+
+### Context and Role
+
+- Role:
+- Environment:
+- Trigger:
+
+### Goals and Success
+
+#### Primary Goal
+
+#### Failures
+-
+
+### Pain Points
+
+-
+
+#### Workarounds
+-
+
+### Constraints and Non-Goals
+
+#### Constraints
+-
+
+#### Non-Goals
+-
+
+---
