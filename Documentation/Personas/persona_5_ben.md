@@ -34,4 +34,4 @@ non-affected members so they can prepare effectively
 
 #### Non-Goals
 - Does not need deep scientific breakdown of plant diseases
-- Does not need national-level outbreak data, just local
+- Does not need national-level outbreak data - just local
