@@ -1,11 +1,11 @@
-### Meeting Minutes
+# Meeting Minutes
 
-# Date: 
+## Date: 
 
 ## Agenda Items:
 1. 
 
-# Action Item: ...
+### Action Item: ...
 - **Description**:
 - **Owner**: 
 - **Deadline**:
