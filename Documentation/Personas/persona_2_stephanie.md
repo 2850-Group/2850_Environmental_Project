@@ -3,33 +3,36 @@
 ### Context and Role
 
 - Role: Distribution Manager
-- Environment: Is responsible for organising where the crops go
-- Trigger: Shipping affected crops
+- Environment: Is responsible for shipping and delivery of the harvest
+- Trigger: Understand the state of current crops to predict how delivering and shipping should be arranged
 
 ### Goals and Success
 
 #### Primary Goal
-To ensure that diseased crops are not introduced to unaffected crops, leading to the disease/pests spreading
+- Identifying which crops may be diseased so they are not transported with safe crops and risking them becoming infected as well
+- Understanding how many crops may not be successfully harvested so she can arrange sufficient transport for the right amount of produce
 
 #### Failures
-An outbreak of disease across the country, meaning that all crops cannot be eaten
+- Cannot predict the amount of produce needing to be processed due to inaccurate analysis, too much transport planned, money lost
+- Cannot identify local diseases that may be affecting plants
 
 ### Pain Points
-I spend my whole day individually scanning crops 
-I have to warn each shop that diseased crops go to
-I cannot see which areas are more affected
+- No general overview of conditions in the local area she covers
+- Scanning crops individually
+- Reporting diseased crops to people individually
 
 #### Workarounds
-Can see where crops have come from so that I can just write off an entire group of crops without having to scan each individual one
-An alert system to let people know that a scpecific type of crop is diseased
-Have a map to show the main affected areas
+- Can use my own data to see where crops have come from so that I can just write off an entire group of crops without having to scan each individual one
+- Uses automated emails to send out alerts for diseased plants
+- Looks up local areas individually and creates her own overview
 
 ### Constraints and Non-Goals
 
 #### Constraints
-Do not want to spend all day scanning crops
-Need to see what type of diseases are spreading
+- Needs alerts for outbreaks of diseases
+- Needs an overview to conditions over local monitors
 
 #### Non-Goals
-How the diseases are dealt with (only that they are cured)
-Do not care about crops in other countries
+- Data from other areas
+- Historic data
+- Remedies for diseases

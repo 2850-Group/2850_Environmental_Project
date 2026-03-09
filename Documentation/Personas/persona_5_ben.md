@@ -11,6 +11,7 @@
 #### Primary Goal
 - To prevent local pests/disease from spreading throughout the local community by informing
 non-affected members so they can prepare effectively
+- Can view problems affecting his local area
 
 #### Failures
 - Numerous farmers in the community lose their harvest because the warning came too late
