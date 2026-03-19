@@ -38,3 +38,16 @@ The environmental challenge: pest and disease outbreaks cause major crop yield l
 - Replace agricultural experts or extension officers
 - Provide treatment or cure recommendations beyond basic next steps
 - Monitor crops in other countries or outside the agreed project scope
+
+
+## Stakeholder Influence Map
+
+| Stakeholder | Interest in system | Influence on requirements |
+|---|---|---|
+| Smallholder Farmer | High | High , primary user, core use case |
+| Shop Owner | High | Medium , secondary user |
+| Distribution Manager | High | Medium , secondary user |
+| Agricultural Researcher | Medium | Medium , extension/reporting features |
+| Agricultural Extension Officer | Medium | Low , indirect beneficiary |
+| Local Government | Low | Low , indirect beneficiary |
+| General Public | Low | Low , end of supply chain |
