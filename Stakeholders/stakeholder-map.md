@@ -15,6 +15,14 @@ The environmental challenge: pest and disease outbreaks cause major crop yield l
 | Distribution Manager | Risk of shipping contaminated crops across the supply chain | Map view of affected areas, ability to trace batches to source farm, proactive alerts |
 | Agricultural Researcher | Needs data to analyse outbreak patterns and inform policy | Filtered historical data by region/crop/time, export functionality |
 
+## Indirect Stakeholders (affected but not direct users)
+
+| Stakeholder | How they are affected |
+|---|---|
+| General Public / Consumers | At risk of purchasing diseased crops if the supply chain is not monitored |
+| Agricultural Extension Officers (AOEs) | Responsible for advising farmers: system reduces their workload by giving farmers a first line of detection. |
+| Local Government / Policy Makers | Responsible for food security:  benefit from outbreak trend data to inform regional decisions |
+| Farm Owners / Landowners | Financial impact of crop losses:  benefit indirectly from early detection protecting yield |
 
 
 ## Stakeholder Needs
