@@ -43,3 +43,6 @@ insert_records = "INSERT INTO pest_monitoring (time, site_id, air_temperature_c,
 
 cursor.executemany(insert_records, contents)
 
+connection.commit()
+connection.close()
+
