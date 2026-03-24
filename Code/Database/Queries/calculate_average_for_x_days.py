@@ -1,4 +1,3 @@
-import sqlite3
 import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -45,8 +44,9 @@ def data_over_x_days(conn, cursor, timestamp, x):
     """
     start = timestamp
     end = timestamp - relativedelta(days=x)
+    print(start, end)
 
-    list = data_between_times(conn, cursor, start, end)
+    list = data_between_times(conn, cursor, end, start)
     return list
 
 def remove_record_null(data):
@@ -63,13 +63,18 @@ def remove_record_null(data):
     tuple-list
         Data where all null value rows have been removed.
     """
+    clean_data = []
+    clean = True
     num_columns = len(data[0])
-    for i in range(0, len(data)-1):
+    for i in range(0, len(data)):
         for j in range(0, num_columns):
-            if data[i][j] == None:
-                data.remove(data[i])
+            if data[i][j] == '':
+                clean = False
+        if clean == True:
+            clean_data.append(data[i])
+        clean = True
     
-    return data
+    return clean_data
 
 def average_data_all_rows(data):
     """
@@ -83,19 +88,19 @@ def average_data_all_rows(data):
     Returns
     -------
     average_all_data :
-        Average of all columns in the data,
+        Average of all columns to do with numerical environmental statistics in the data.
     """
     average = []
     num_rows = len(data)
 
-    for j in range(0, 5):
+    for j in range(0, 6):
         average.append(0)
         for i in range(0, num_rows):
-            average[j] += data[i][j+2]
+            average[j] += data[i][j+3]
     
     average.append(0)
     for i in range(0, num_rows):
-        average[6] += data[i][14]
+        average[6] += data[i][15]
     
     for i in range(0, 6):
         average[i] = average[i]/num_rows

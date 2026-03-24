@@ -1,5 +1,3 @@
-import sqlite3
-
 def row_by_timestamp(conn, cursor, timestamp) -> tuple :
     """
     SQL select statement for row by timestamp.

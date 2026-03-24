@@ -50,7 +50,7 @@ else:
     cursor.execute(create_table_user)
 
 
-file = open('pest_monitoring.csv')
+file = open('Code/Database/pest_monitoring.csv')
 
 contents = csv.reader(file)
 
