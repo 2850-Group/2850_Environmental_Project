@@ -37,6 +37,9 @@ BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
 ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
 ALERT_CRIT = (0.95, 0.30, 0.30, 1)      # red critical
 
+# Screen order direcetion
+SCREEN_ORDER = ["dashboard", "scan", "profile"]
+
 def rgba(color):
     return color
 
@@ -138,7 +141,7 @@ class DataCard(Card):
 #Alert Panel
 
 SAMPLE_ALERTS = [
-    {"level": "critical", "title": "PLant dying",
+    {"level": "critical", "title": "Plant dying",
      "summary": "Water at 97%",
      "detail": "The plant is definitely dying"},
     {"level": "warning",  "title": "Pressure",
@@ -359,11 +362,17 @@ class NavBar(BoxLayout):
         btn.bind(on_touch_down=lambda w, t: self._nav(w, t))
         return btn
  
+
     def _nav(self, widget, touch):
         if widget.collide_point(*touch.pos):
-            self._set_active(widget.name)
-            self.sm.transition = SlideTransition(duration=0.25)
-            self.sm.current = widget.name
+            current = self.sm.current
+            target = widget.name
+            ci = SCREEN_ORDER.index(current) if current in SCREEN_ORDER else 0
+            ti = SCREEN_ORDER.index(target) if target in SCREEN_ORDER else 0
+            direction = "left" if ti > ci else "right"
+            self.sm.transition = SlideTransition(direction=direction, duration=0.25)
+            self._set_active(target)
+            self.sm.current = target
             return True
  
     def _set_active(self, name):
