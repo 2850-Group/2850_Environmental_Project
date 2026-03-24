@@ -1,4 +1,4 @@
-
+import kivy
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.uix.gridlayout import GridLayout
@@ -9,8 +9,9 @@ from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.graphics import (
     Color, Rectangle, RoundedRectangle, Line, Ellipse,
-    Canvas, Triangle
+    Canvas, Triangle,
 )
+from kivy.uix.spinner import Spinner
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from kivy.properties import (
@@ -78,7 +79,7 @@ class DataArrow(Widget):
                 #Triangle pointing up
                 Triangle(points=[
                     nx - awidth /2, ny - aheight /4,
-                    nx + awidth /2, ny + aheight/4,
+                    nx + awidth /2, ny - aheight/4,
                     nx,             ny + aheight/2,
                 ])
             else:
@@ -99,7 +100,7 @@ class DataCard(Card):
         #Title
         self.add_widget(Label(
             text=title, font_size=sp(11),
-            color=DIM, halign = "centre", size_hint_y=0.22, bold = False
+            color=DIM, halign = "center", size_hint_y=0.22, bold = False
         ))
 
         #Value
@@ -138,7 +139,7 @@ class DataCard(Card):
 #Alert Panel
 
 SAMPLE_ALERTS = [
-    {"level": "critical", "title": "PLant dying",
+    {"level": "critical", "title": "Plant dying",
      "summary": "Water at 97%",
      "detail": "The plant is definitely dying"},
     {"level": "warning",  "title": "Pressure",
@@ -329,12 +330,12 @@ class NavBar(BoxLayout):
  
         self._btns = {}
         items = [
-            ("dashboard", "⊞", "Dashboard"),
-            ("scan",      "◎", "Scan"),
-            ("profile",   "⚇", "Profile"),
+            ("dashboard",  "Dashboard"),
+            ("scan",  "Scan"),
+            ("profile",  "Profile"),
         ]
-        for name, icon, label in items:
-            btn = self._make_btn(name, icon, label)
+        for name, label in items:
+            btn = self._make_btn(name, label)
             self._btns[name] = btn
             self.add_widget(btn)
  
@@ -346,15 +347,12 @@ class NavBar(BoxLayout):
         self._border.pos  = w.pos
         self._border.size = (w.width, dp(1))
  
-    def _make_btn(self, name, icon, label):
+    def _make_btn(self, name, label):
         btn = BoxLayout(orientation="vertical", spacing=dp(2),
                         padding=[0,dp(8)])
         btn.name = name
-        btn._icon_lbl  = Label(text=icon, font_size=sp(20),
-                               color=DIM, size_hint_y=0.55)
         btn._text_lbl  = Label(text=label, font_size=sp(9),
                                color=DIM, size_hint_y=0.45)
-        btn.add_widget(btn._icon_lbl)
         btn.add_widget(btn._text_lbl)
         btn.bind(on_touch_down=lambda w, t: self._nav(w, t))
         return btn
@@ -369,10 +367,8 @@ class NavBar(BoxLayout):
     def _set_active(self, name):
         for n, btn in self._btns.items():
             if n == name:
-                btn._icon_lbl.color = ACCENT
                 btn._text_lbl.color = ACCENT
             else:
-                btn._icon_lbl.color = DIM
                 btn._text_lbl.color = DIM
 
 
@@ -400,20 +396,30 @@ class DashboardScreen(Screen):
                          padding=[dp(12), dp(14), dp(12), dp(10)])
         body.bind(minimum_height=body.setter('height'))
  
-        # 2 x 3 Data Cards
-        grid = GridLayout(cols=2, rows=3, spacing=dp(10),
+        # 3 x 3 Data Cards
+        grid = GridLayout(cols=3, rows=3, spacing=dp(10),
                           size_hint_y=None, height=dp(200))
         readings = [
             ("Temperature", "24.7", "°C",  "up",   "+1.2°"),
-            ("Humidity",    "61",   "%",    "down", "−3%"),
-            ("Pressure",    "1013", "hPa",  "up",   "+4 hPa"),
-            ("Air Quality", "42",   "AQI",  "down", "−8"),
-            ("Soil Quality", "23.4", "N/a", "down", "−2.0")
+            ("Humidity",    "61",   "pct",    "down", "-3 pct"),
+            ("Vibration Level",    "0.2", "",  "up",   "+0.04"),
+            ("Light Lux", "42",   "",  "down", "-8"),
+            ("Rainfall", "23.4", "mm/hr", "down", "-2.2 mm/hr"),
+            ("Leaf Wetness", "0.65", "", "up", "+0.02"),
+            ("Pest Trap Count", "11", "", "up", "+3"),
         ]
-        for title, val, unit, direction, delta in readings:
+        for title, val, unit, direction, delta in readings[:6]:
             card = DataCard(title, val, unit, direction, delta,
                                bg_color=list(CARD_BG))
             grid.add_widget(card)
+
+        title, val, unit, direction, delta = readings[6]
+        centre_card = DataCard(title, val, unit, direction, delta, bg_color = list(CARD_BG))
+
+        grid.add_widget(Widget())
+        grid.add_widget(centre_card)
+        grid.add_widget(Widget())
+
         body.add_widget(grid)
  
         # Expandable Location Map
@@ -506,6 +512,9 @@ class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
+
+        self.locations = ["Maize site", "Brassica Site", "Orchard Site"]
+
         layout = BoxLayout(orientation="vertical",
                            padding=dp(24), spacing=dp(16))
  
@@ -538,10 +547,42 @@ class ProfileScreen(Screen):
         ))
  
         # Info cards
-        for (label, value) in [("Role", "Senior Engineer"),
-                                ("Location", "Leeds, UK"),
-                                ("Devices", "7 connected"),
-                                ("Plan", "Pro")]:
+        loc_row = Card(
+            orientation="horizontal", bg_color=list(CARD_BG),
+            size_hint_y=None, height=dp(44),
+            padding = [dp(14), 0]
+        )
+        loc_row.add_widget(Label(
+            text="Location", font_size=sp(12), color = DIM, halign="left"
+        ))
+        self.location_spinner = Spinner(
+            text = self.locations[0],
+            values = self.locations,
+            font_size = sp(11),
+            background_normal = "",
+            background_color = (0,0,0,0),
+            color = NEUTRAL,
+            size=(dp(130), dp(30))
+        )
+        dropdown = self.location_spinner._dropdown
+        dropdown.background_color = CARD_BG
+        dropdown.background_normal = "" 
+        dropdown.auto_width = False
+        dropdown.width=dp(100)
+
+        for item in dropdown.container.children:
+            item.font_size = sp(11)
+            item.color = NEUTRAL
+            item.background_normal = ""
+            item.background_color = CARD_BG
+
+        loc_row.add_widget(self.location_spinner)
+        layout.add_widget(loc_row)
+
+        current_location = self.location_spinner.text
+
+        for (label, value) in [("Role", "Researcher"),
+                                ("Previous Scans", "Access" )]:
             row = Card(orientation="horizontal",
                        bg_color=list(CARD_BG),
                        size_hint_y=None, height=dp(44),
@@ -551,6 +592,8 @@ class ProfileScreen(Screen):
             row.add_widget(Label(text=value, font_size=sp(12),
                                  color=NEUTRAL, halign="right"))
             layout.add_widget(row)
+        
+
  
         layout.add_widget(Widget())
         self.add_widget(layout)
