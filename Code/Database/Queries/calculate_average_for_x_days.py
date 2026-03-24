@@ -2,7 +2,7 @@ import sqlite3
 import datetime
 from dateutil.relativedelta import relativedelta
 
-def rows_by_x_days(conn, cursor, start_timestamp, end_timestamp) :
+def data_between_times(conn, cursor, start_timestamp, end_timestamp) :
     """
     SQL select statement to return all entries between two dates.
 
@@ -46,12 +46,8 @@ def data_over_x_days(conn, cursor, timestamp, x):
     start = timestamp
     end = timestamp - relativedelta(days=x)
 
-    list, error = rows_by_x_days(conn, cursor, start, end)
-    if error is not None :
-        print(f"Error: {error}")
-        return
-    else:
-        return list
+    list = data_between_times(conn, cursor, start, end)
+    return list
 
 def remove_record_null(data):
     """

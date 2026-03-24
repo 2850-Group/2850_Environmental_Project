@@ -34,14 +34,14 @@ print(rows, len(rows))
 #Output: [], 0
 #Test Passed
 
-#TEST: row_by_x_days()
+#TEST: data_between_times()
 
 #Test 1: All rows between two timestamps returned. Upper and Lower Boundary test.
 #Input: conn=connection, cursor=cursor, start_timestamp=2022-01-01 00:00:00, end_timestamp=2022-01-01-01 00:15:00
 #Expected Output: All records between the two timestamps returned. List length should be 6.
 start_date = datetime.datetime(2022, 1, 1, 0, 0, 0)
 end_date = datetime.datetime(2022, 1, 1, 0, 15, 0)
-rows = rows_by_x_days(connection, cursor, start_date, end_date)
+rows = data_between_times(connection, cursor, start_date, end_date)
 print(rows, len(rows))
 #Output 1: Error binding parameter 1: type 'tuple' is not supported
     #Fixed: Changed brackets as there was one set making start and end timestamp into a tuple.
@@ -54,12 +54,40 @@ print(rows, len(rows))
 #Test passed.
 
 #Test 2: All rows between two timestamps returned. Boundary test.
+#Input: conn=connection, cursor=cursor, start_timestamp=2022-01-01 00:00:01, end_timestamp=2022-01-01 00:16:00
+#Expected Output: All records between the two timestamps returned. List length should be 3.
+start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+end_date = datetime.datetime(2022, 1, 1, 0, 16, 0)
+rows = data_between_times(connection, cursor, start_date, end_date)
+print(rows, len(rows))
+#Output: [(3, '2022-01-01 00:15:00', 'site_maize', 14.59, 99.3, 0.915, 4.0, 0.062, 0, 'normal', 0, 0, 0, 0, 0, 0.485), (70080, '2022-01-01 00:15:00', 'site_brassica', 15.46, 100.0, 0.862, 2.0, 0.491, 0, 'warning', 1, 0, 0, 1, 0, 0.485), (140157, '2022-01-01 00:15:00', 'site_orchard', 13.48, 99.8, 0.839, 1.0, 0.156, 3, 'normal', 0, 0, 0, 0, 0, 0.485)]
+#        3
+#Test passed.
 
-#Test 3:
-
+#Test 3: No rows returned when timnestamps do not reference any entities.
+#Input: conn=connection, cursor=cursor, start_timestamp=2022-01-01 00:00:01, end_timestamp=2022-01-01 00:14:00
+#Expected Output: Empty list returned. List length should be 0.
+start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+end_date = datetime.datetime(2022, 1, 1, 0, 14, 0)
+rows = data_between_times(connection, cursor, start_date, end_date)
+print(rows, len(rows))
+#Output: [] 0
+#Test passed.
 
 
 #TEST: data_over_x_days()
+
+#Test 1: All rows x days before the start date should be returned. Upper and Lower Boundary test.
+#Input: conn=connection, cursor=cursor, start_timestamp=2022-01-01 00:00:00, days=1.
+#Expected Output: All records x days before the start timestamp. List length should be 96.
+start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+days = 1
+rows = data_over_x_days(connection, cursor, start_date, days)
+print(rows, len(rows))
+#Output 1: list, error = rows_by_x_days(conn, cursor, start, end). ValueError: not enough values to unpack (expected 2, got 0)
+    #Fixed: return statement changed in rows_by_x_days due to earlier tests so needed to be updated in data_over_x_days
+#Output 2: [] 0
+
 
 #TEST: remove_record_null()
 
