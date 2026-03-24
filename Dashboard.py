@@ -99,7 +99,7 @@ class DataCard(Card):
         #Title
         self.add_widget(Label(
             text=title, font_size=sp(11),
-            color=DIM, halign = "centre", size_hint_y=0.22, bold = False
+            color=DIM, halign = "center", size_hint_y=0.22, bold = False
         ))
 
         #Value
