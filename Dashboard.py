@@ -100,37 +100,37 @@ class DataCard(Card):
         kwargs.setdefault("spacing", dp(2))
         super().__init__(**kwargs)
 
-        #Title
-        self.add_widget(Label(
-            text=title, font_size=sp(11),
-            color=DIM, halign = "center", size_hint_y=0.22, bold = False
-        ))
+        # Title
+        lbl = Label(text=title, font_size=sp(11), color=DIM,
+                    halign="center", valign="middle", size_hint_y=0.22)
+        lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        self.add_widget(lbl)
 
-        #Value
-        row = BoxLayout(size_hint_y=0.45, spacing=dp(4))
-        row.add_widget(Label(
-            text=f"{value}", font_size=sp(22),
-            color=NEUTRAL, bold=True, halign="center",
-            size_hint_x=0.65
-        ))
-        arrow = DataArrow(direction=direction, size_hint_x=0.35)
+        # Value
+        row = FloatLayout(size_hint_y=0.45)
+        val = Label(text=f"{value}", font_size=sp(22), color=NEUTRAL,
+                    bold=True, halign="center", valign="middle",
+                    size_hint=(1, 1), pos_hint={"x": 0, "y": -0.1})
+        val.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        arrow = DataArrow(direction=direction,
+                          size_hint=(None, None), size=(dp(24), dp(24)),
+                          pos_hint={"right": 1, "center_y": 0.5})
+        row.add_widget(val)
         row.add_widget(arrow)
         self.add_widget(row)
-
-        #Unit + delta
+        
+        # Unit + delta
         bottom = BoxLayout(size_hint_y=0.33, spacing=dp(6))
-        bottom.add_widget(Label(
-            text=unit, font_size=sp(10),
-            color=DIM, halign="left", size_hint_x=0.5
-        ))
         delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        sign = "▲" if direction == "up" else "▼"
-        bottom.add_widget(Label(
-            text=f"{sign} {delta}", font_size=sp(10),
-            color=delta_clr, halign="right", size_hint_x=0.5
-        ))
+        unit_lbl = Label(text=unit, font_size=sp(10), color=DIM,
+                         halign="center", valign="middle", size_hint_x=0.5)
+        unit_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        delta_lbl = Label(text=delta, font_size=sp(10), color=delta_clr,
+                          halign="center", valign="middle", size_hint_x=0.5)
+        delta_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        bottom.add_widget(unit_lbl)
+        bottom.add_widget(delta_lbl)
         self.add_widget(bottom)
-
 #class ExpandableDataCard(BoxLayout):
 
 #class LocationMap(Widget):
@@ -334,8 +334,8 @@ class NavBar(BoxLayout):
         self._btns = {}
         items = [
             ("dashboard", "⊞", "Dashboard"),
-            ("scan",      "◎", "Scan"),
-            ("profile",   "⚇", "Profile"),
+            ("scan", "◎", "Scan"),
+            ("profile", "⚇", "Profile"),
         ]
         for name, icon, label in items:
             btn = self._make_btn(name, icon, label)
@@ -412,7 +412,7 @@ class DashboardScreen(Screen):
  
         # 2 x 3 Data Cards
         grid = GridLayout(cols=2, rows=3, spacing=dp(10),
-                          size_hint_y=None, height=dp(200))
+                        size_hint_y=None, height=dp(240))
         readings = [
             ("Temperature", "24.7", "°C",  "up",   "+1.2°"),
             ("Humidity",    "61",   "%",    "down", "−3%"),
