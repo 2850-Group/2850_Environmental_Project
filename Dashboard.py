@@ -19,6 +19,7 @@ from kivy.properties import (
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.animation import Animation
+from datetime import datetime
 import random
 import math
 
@@ -565,24 +566,54 @@ class ProfileScreen(Screen):
         self.add_widget(layout)
  
  
+class DashboardHeader(BoxLayout):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("size_hint_y", None)
+        kwargs.setdefault("height", dp(56))
+        kwargs.setdefault("padding", [dp(14), dp(6)])
+        kwargs.setdefault("spacing", dp(10))
+        super().__init__(**kwargs)
+
+        with self.canvas.before:
+            Color(*SURFACE2)
+            self._bg = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._upd, size=self._upd)
+
+        title_box = BoxLayout(orientation="vertical")
+        ov = Label(text="Overview", font_size=sp(14),
+                   color=NEUTRAL, bold=True, halign="left", valign="bottom")
+        ov.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        today = datetime.now().strftime("%A, %d %B %Y")
+        dt = Label(text=today, font_size=sp(9),
+                   color=DIM, halign="left", valign="top")
+        dt.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        title_box.add_widget(ov)
+        title_box.add_widget(dt)
+        self.add_widget(title_box)
+
+    def _upd(self, w, *_):
+        self._bg.pos  = w.pos
+        self._bg.size = w.size
+
 # App Root
 class DashboardApp(App):
     def build(self):
         self.title = "Dashboard"
- 
+
         sm = ScreenManager()
         sm.add_widget(DashboardScreen(name="dashboard"))
         sm.add_widget(ScanScreen(name="scan"))
         sm.add_widget(ProfileScreen(name="profile"))
- 
+
         nav = NavBar(screen_manager=sm)
- 
+        header = DashboardHeader()
+
         root = BoxLayout(orientation="vertical")
+        root.add_widget(header)
         root.add_widget(sm)
         root.add_widget(nav)
         return root
- 
- 
+
+
 if __name__ == "__main__":
     DashboardApp().run()
-    
