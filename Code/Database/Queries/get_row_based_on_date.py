@@ -88,9 +88,3 @@ def timer(conn,cursor,year,month,day,hour,minute):
             print("End of Data")
             break
         time.sleep(1)
-
-
-connection = sqlite3.connect('pest_control.db')
-cursor = connection.cursor()
-
-timer(connection,cursor,2022,10,1,1,15)

@@ -92,13 +92,57 @@ class testDataBetweenTimes(unittest.TestCase):
         self.assertEqual(len(rows),6)
     
     def test_one_valid_timestamp(self):
+
+        start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+        end_date = datetime.datetime(2022, 1, 1, 0, 16, 0)
+        rows = data_between_times(connection, cursor, start_date, end_date)
+
+        self.assertEqual(rows,[(3, '2022-01-01 00:15:00', 'site_maize', 14.59, 99.3, 0.915, 4.0, 0.062, 0, 'normal', 0, 0, 0, 0, 0, 0.485),
+                                (70080, '2022-01-01 00:15:00', 'site_brassica', 15.46, 100.0, 0.862, 2.0, 0.491, 0, 'warning', 1, 0, 0, 1, 0, 0.485),
+                                (140157, '2022-01-01 00:15:00', 'site_orchard', 13.48, 99.8, 0.839, 1.0, 0.156, 3, 'normal', 0, 0, 0, 0, 0, 0.485)])
         
+        self.assertEqual(len(rows),3)
+    
+    def test_no_valid_timestamp(self):
+
+        start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+        end_date = datetime.datetime(2022, 1, 1, 0, 14, 0)
+        rows = data_between_times(connection, cursor, start_date, end_date)
+
+        self.assertEqual(rows,[])
+        self.assertEqual(len(rows),0)
 
 
 
+class testDataOverXDays(unittest.TestCase):
+    
+    def test_over_one_day(self):
+
+        start_date = datetime.datetime(2022, 1, 2, 0, 0, 0)
+        days = 1
+        rows = data_over_x_days(connection, cursor, start_date, days)
+
+        self.assertEqual(len(rows), 291)
 
 
+class testRemoveRecordNull(unittest.TestCase):
 
+    def test_remove_null(self):
+
+        data = [[1, 2, 3, ''], [1, 2, 3, 4], ["1", "2", '', "4"], ["1", "2", "3", "4"]]
+        data_clean = remove_record_null(data)
+
+        self.assertEqual(data_clean, [[1, 2, 3, 4], ['1', '2', '3', '4']])
+
+class testAverageData(unittest.TestCase):
+
+    def test_average_data(self):
+
+        data = [(2, '2022-01-01 00:00:00', 'site_maize', 14.83, 97.1, 0.872, 1.0, 0.397, 9, 'warning', 1, 1, 0, 0, 0, 0.5), 
+                (3, '2022-01-01 00:15:00', 'site_maize', 14.59, 99.3, 0.915, 4.0, 0.062, 0, 'normal', 0, 0, 0, 0, 0, 0.485)]
+        average = average_data_all_rows(data)
+
+        self.assertEqual(average, [14.71, 98.19999999999999, 0.8935, 2.5, 0.2295, 4.5, 0.985])
 
 class testTimerFunction(unittest.TestCase):
     def test_year_range(self):
