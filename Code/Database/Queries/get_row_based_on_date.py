@@ -23,12 +23,24 @@ def row_by_timestamp(conn, cursor, timestamp) -> tuple :
     string
         Indicates an error. 
     """
+
+    if(timestamp.year > 2023 or timestamp.year < 2022):
+        raise ValueError("year is out of range")
+    if(timestamp.minute%15 != 0):
+        raise ValueError("minutes must divide by 15")
+    
     cursor.execute("SELECT * FROM pest_monitoring  WHERE time=?", (timestamp,))
     output = cursor.fetchall()
     return output
 
+
+def loop(conn,cursor,timestamp):
+        
+        output = row_by_timestamp(conn,cursor,timestamp)
+        print(output)
+        return output
     
-def timer(conn,cursor):
+def timer(conn,cursor,year,month,day,hour,minute):
 
     """
     Timer to select a row in 15 minute increments every 3 seconds.
@@ -39,6 +51,18 @@ def timer(conn,cursor):
         Pre-established database connection.
     cursor :
         Pre-established database cursor.
+    year :
+        The year the user wishes to start at
+    month :
+        The month the user wishes to start at
+    day :
+        The day the user wishes to start at
+    hour :
+        The hour the user wishes to start at
+    minute :
+        The minute the user wishes to start at
+    second :
+        The second the user wishes to start at
 
     Returns
     -------
@@ -47,25 +71,26 @@ def timer(conn,cursor):
     string
         Indicates an error. 
     """
+    if(year > 2023 or year < 2022):
+        raise ValueError("year is out of range")
+    if(minute%15 != 0):
+        raise ValueError("minutes must divide by 15")
 
-    year =2023
-    month = 12
-    day = 31
-    hour = 22
-    minute = 0
-    second = 0
-    timestamp = datetime.datetime(year,month,day,hour,minute,second)
+    timestamp = datetime.datetime(year,month,day,hour,minute,0)
 
     end_date = datetime.datetime(2023,12,31,23,15,0)
 
     while True:
-        output = row_by_timestamp(conn,cursor,timestamp)
-        print(output)
+        loop(conn,cursor,timestamp)
 
         timestamp = timestamp + timedelta(minutes = 15)
         if timestamp == end_date:
             print("End of Data")
             break
         time.sleep(1)
-    
-        #return output
+
+
+connection = sqlite3.connect('pest_control.db')
+cursor = connection.cursor()
+
+timer(connection,cursor,2022,10,1,1,15)
