@@ -407,7 +407,7 @@ class DashboardScreen(Screen):
                             do_scroll_x=False, do_scroll_y=True)
         body = BoxLayout(orientation="vertical",
                          size_hint_y=None, spacing=dp(10),
-                         padding=[dp(12), dp(14), dp(12), dp(10)])
+                         padding=[dp(12), dp(20), dp(12), dp(10)])
         body.bind(minimum_height=body.setter('height'))
  
         # 2 x 3 Data Cards
