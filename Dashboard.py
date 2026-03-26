@@ -19,6 +19,7 @@ from kivy.properties import (
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.animation import Animation
+from datetime import datetime
 import random
 import math
 
@@ -36,6 +37,9 @@ BAR_BG     = (0.08, 0.10, 0.14, 1)      # bottom bar bg
 BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
 ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
 ALERT_CRIT = (0.95, 0.30, 0.30, 1)      # red critical
+
+# Screen order direcetion
+SCREEN_ORDER = ["dashboard", "scan", "profile"]
 
 def rgba(color):
     return color
@@ -138,7 +142,7 @@ class DataCard(Card):
 #Alert Panel
 
 SAMPLE_ALERTS = [
-    {"level": "critical", "title": "PLant dying",
+    {"level": "critical", "title": "Plant dying",
      "summary": "Water at 97%",
      "detail": "The plant is definitely dying"},
     {"level": "warning",  "title": "Pressure",
@@ -359,11 +363,17 @@ class NavBar(BoxLayout):
         btn.bind(on_touch_down=lambda w, t: self._nav(w, t))
         return btn
  
+
     def _nav(self, widget, touch):
         if widget.collide_point(*touch.pos):
-            self._set_active(widget.name)
-            self.sm.transition = SlideTransition(duration=0.25)
-            self.sm.current = widget.name
+            current = self.sm.current
+            target = widget.name
+            ci = SCREEN_ORDER.index(current) if current in SCREEN_ORDER else 0
+            ti = SCREEN_ORDER.index(target) if target in SCREEN_ORDER else 0
+            direction = "left" if ti > ci else "right"
+            self.sm.transition = SlideTransition(direction=direction, duration=0.25)
+            self._set_active(target)
+            self.sm.current = target
             return True
  
     def _set_active(self, name):
@@ -556,24 +566,54 @@ class ProfileScreen(Screen):
         self.add_widget(layout)
  
  
+class DashboardHeader(BoxLayout):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("size_hint_y", None)
+        kwargs.setdefault("height", dp(56))
+        kwargs.setdefault("padding", [dp(14), dp(6)])
+        kwargs.setdefault("spacing", dp(10))
+        super().__init__(**kwargs)
+
+        with self.canvas.before:
+            Color(*SURFACE2)
+            self._bg = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._upd, size=self._upd)
+
+        title_box = BoxLayout(orientation="vertical")
+        ov = Label(text="Overview", font_size=sp(14),
+                   color=NEUTRAL, bold=True, halign="left", valign="bottom")
+        ov.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        today = datetime.now().strftime("%A, %d %B %Y")
+        dt = Label(text=today, font_size=sp(9),
+                   color=DIM, halign="left", valign="top")
+        dt.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        title_box.add_widget(ov)
+        title_box.add_widget(dt)
+        self.add_widget(title_box)
+
+    def _upd(self, w, *_):
+        self._bg.pos  = w.pos
+        self._bg.size = w.size
+
 # App Root
 class DashboardApp(App):
     def build(self):
         self.title = "Dashboard"
- 
+
         sm = ScreenManager()
         sm.add_widget(DashboardScreen(name="dashboard"))
         sm.add_widget(ScanScreen(name="scan"))
         sm.add_widget(ProfileScreen(name="profile"))
- 
+
         nav = NavBar(screen_manager=sm)
- 
+        header = DashboardHeader()
+
         root = BoxLayout(orientation="vertical")
+        root.add_widget(header)
         root.add_widget(sm)
         root.add_widget(nav)
         return root
- 
- 
+
+
 if __name__ == "__main__":
     DashboardApp().run()
-    
