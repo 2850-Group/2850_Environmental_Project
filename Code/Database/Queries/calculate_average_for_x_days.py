@@ -1,5 +1,6 @@
 import datetime
 from dateutil.relativedelta import relativedelta
+import sqlite3
 
 def data_between_times(conn, cursor, start_timestamp, end_timestamp) :
     """
@@ -106,12 +107,6 @@ def average_data_all_rows(data):
         average[i] = average[i]/num_rows
 
     return average
-
-    
-
-        
-            
-
 
 
 
