@@ -67,3 +67,5 @@ def timer(conn,cursor):
             print("End of Data")
             break
         time.sleep(1)
+    
+        #return output
