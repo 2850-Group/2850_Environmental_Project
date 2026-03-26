@@ -169,13 +169,15 @@ class AlertRow(BoxLayout):
                         padding=[dp(12), 0], spacing=dp(10))
  
         # Colour dot
-        dot = Widget(size_hint=(None, None), size=(dp(8), dp(8)))
+        dot_wrap = BoxLayout(size_hint=(None, None), size=(dp(20), dp(52)))
+        dot = Widget(size_hint=(None, None), size=(dp(10), dp(10)),
+                    pos_hint={"center_x": 0.5, "center_y": 0.5})
         with dot.canvas:
             Color(*clr)
             Ellipse(pos=dot.pos, size=dot.size)
-        dot.bind(pos=lambda w, p: w.canvas.clear() or
-                 self._redraw_dot(w, p, clr))
-        row.add_widget(dot)
+        dot.bind(pos=lambda w, p: (w.canvas.clear(), self._redraw_dot(w, p, clr)))
+        dot_wrap.add_widget(dot)
+        row.add_widget(dot_wrap)
  
         text_col = BoxLayout(orientation="vertical", spacing=dp(2))
         text_col.add_widget(Label(
@@ -251,7 +253,7 @@ class AlertsPanel(BoxLayout):
                            padding=[dp(14), 0])
         with header.canvas.before:
             Color(*SURFACE2)
-            self._hdr_rect = Rectangle(pos=header.pos, size=header.size)
+            self._hdr_rect = RoundedRectangle(pos=header.pos, size=header.size)
         header.bind(pos=self._upd_hdr, size=self._upd_hdr)
  
         badge = Label(
@@ -270,7 +272,7 @@ class AlertsPanel(BoxLayout):
  
         with self.canvas.before:
             Color(*CARD_BG)
-            self._bg = Rectangle(pos=self.pos, size=self.size)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
         self.bind(pos=self._upd_bg, size=self._upd_bg)
  
         # Alert rows
