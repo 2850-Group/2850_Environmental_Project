@@ -19,6 +19,7 @@ from kivy.properties import (
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.animation import Animation
+from datetime import datetime
 import random
 import math
 
@@ -99,37 +100,37 @@ class DataCard(Card):
         kwargs.setdefault("spacing", dp(2))
         super().__init__(**kwargs)
 
-        #Title
-        self.add_widget(Label(
-            text=title, font_size=sp(11),
-            color=DIM, halign = "center", size_hint_y=0.22, bold = False
-        ))
+        # Title
+        lbl = Label(text=title, font_size=sp(11), color=DIM,
+                    halign="center", valign="middle", size_hint_y=0.22)
+        lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        self.add_widget(lbl)
 
-        #Value
-        row = BoxLayout(size_hint_y=0.45, spacing=dp(4))
-        row.add_widget(Label(
-            text=f"{value}", font_size=sp(22),
-            color=NEUTRAL, bold=True, halign="center",
-            size_hint_x=0.65
-        ))
-        arrow = DataArrow(direction=direction, size_hint_x=0.35)
+        # Value
+        row = FloatLayout(size_hint_y=0.45)
+        val = Label(text=f"{value}", font_size=sp(22), color=NEUTRAL,
+                    bold=True, halign="center", valign="middle",
+                    size_hint=(1, 1), pos_hint={"x": 0, "y": -0.1})
+        val.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        arrow = DataArrow(direction=direction,
+                          size_hint=(None, None), size=(dp(24), dp(24)),
+                          pos_hint={"right": 1, "center_y": 0.5})
+        row.add_widget(val)
         row.add_widget(arrow)
         self.add_widget(row)
-
-        #Unit + delta
+        
+        # Unit + delta
         bottom = BoxLayout(size_hint_y=0.33, spacing=dp(6))
-        bottom.add_widget(Label(
-            text=unit, font_size=sp(10),
-            color=DIM, halign="left", size_hint_x=0.5
-        ))
         delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        sign = "▲" if direction == "up" else "▼"
-        bottom.add_widget(Label(
-            text=f"{sign} {delta}", font_size=sp(10),
-            color=delta_clr, halign="right", size_hint_x=0.5
-        ))
+        unit_lbl = Label(text=unit, font_size=sp(10), color=DIM,
+                         halign="center", valign="middle", size_hint_x=0.5)
+        unit_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        delta_lbl = Label(text=delta, font_size=sp(10), color=delta_clr,
+                          halign="center", valign="middle", size_hint_x=0.5)
+        delta_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        bottom.add_widget(unit_lbl)
+        bottom.add_widget(delta_lbl)
         self.add_widget(bottom)
-
 #class ExpandableDataCard(BoxLayout):
 
 #class LocationMap(Widget):
@@ -168,13 +169,15 @@ class AlertRow(BoxLayout):
                         padding=[dp(12), 0], spacing=dp(10))
  
         # Colour dot
-        dot = Widget(size_hint=(None, None), size=(dp(8), dp(8)))
+        dot_wrap = BoxLayout(size_hint=(None, None), size=(dp(20), dp(52)))
+        dot = Widget(size_hint=(None, None), size=(dp(10), dp(10)),
+                    pos_hint={"center_x": 0.5, "center_y": 0.5})
         with dot.canvas:
             Color(*clr)
             Ellipse(pos=dot.pos, size=dot.size)
-        dot.bind(pos=lambda w, p: w.canvas.clear() or
-                 self._redraw_dot(w, p, clr))
-        row.add_widget(dot)
+        dot.bind(pos=lambda w, p: (w.canvas.clear(), self._redraw_dot(w, p, clr)))
+        dot_wrap.add_widget(dot)
+        row.add_widget(dot_wrap)
  
         text_col = BoxLayout(orientation="vertical", spacing=dp(2))
         text_col.add_widget(Label(
@@ -250,7 +253,7 @@ class AlertsPanel(BoxLayout):
                            padding=[dp(14), 0])
         with header.canvas.before:
             Color(*SURFACE2)
-            self._hdr_rect = Rectangle(pos=header.pos, size=header.size)
+            self._hdr_rect = RoundedRectangle(pos=header.pos, size=header.size)
         header.bind(pos=self._upd_hdr, size=self._upd_hdr)
  
         badge = Label(
@@ -269,7 +272,7 @@ class AlertsPanel(BoxLayout):
  
         with self.canvas.before:
             Color(*CARD_BG)
-            self._bg = Rectangle(pos=self.pos, size=self.size)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
         self.bind(pos=self._upd_bg, size=self._upd_bg)
  
         # Alert rows
@@ -333,8 +336,8 @@ class NavBar(BoxLayout):
         self._btns = {}
         items = [
             ("dashboard", "⊞", "Dashboard"),
-            ("scan",      "◎", "Scan"),
-            ("profile",   "⚇", "Profile"),
+            ("scan", "◎", "Scan"),
+            ("profile", "⚇", "Profile"),
         ]
         for name, icon, label in items:
             btn = self._make_btn(name, icon, label)
@@ -411,7 +414,7 @@ class DashboardScreen(Screen):
  
         # 2 x 3 Data Cards
         grid = GridLayout(cols=2, rows=3, spacing=dp(10),
-                          size_hint_y=None, height=dp(200))
+                        size_hint_y=None, height=dp(240))
         readings = [
             ("Temperature", "24.7", "°C",  "up",   "+1.2°"),
             ("Humidity",    "61",   "%",    "down", "−3%"),
@@ -565,24 +568,54 @@ class ProfileScreen(Screen):
         self.add_widget(layout)
  
  
+class DashboardHeader(BoxLayout):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("size_hint_y", None)
+        kwargs.setdefault("height", dp(56))
+        kwargs.setdefault("padding", [dp(14), dp(6)])
+        kwargs.setdefault("spacing", dp(10))
+        super().__init__(**kwargs)
+
+        with self.canvas.before:
+            Color(*SURFACE2)
+            self._bg = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._upd, size=self._upd)
+
+        title_box = BoxLayout(orientation="vertical")
+        ov = Label(text="Overview", font_size=sp(14),
+                   color=NEUTRAL, bold=True, halign="left", valign="bottom")
+        ov.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        today = datetime.now().strftime("%A, %d %B %Y")
+        dt = Label(text=today, font_size=sp(9),
+                   color=DIM, halign="left", valign="top")
+        dt.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        title_box.add_widget(ov)
+        title_box.add_widget(dt)
+        self.add_widget(title_box)
+
+    def _upd(self, w, *_):
+        self._bg.pos  = w.pos
+        self._bg.size = w.size
+
 # App Root
 class DashboardApp(App):
     def build(self):
         self.title = "Dashboard"
- 
+
         sm = ScreenManager()
         sm.add_widget(DashboardScreen(name="dashboard"))
         sm.add_widget(ScanScreen(name="scan"))
         sm.add_widget(ProfileScreen(name="profile"))
- 
+
         nav = NavBar(screen_manager=sm)
- 
+        header = DashboardHeader()
+
         root = BoxLayout(orientation="vertical")
+        root.add_widget(header)
         root.add_widget(sm)
         root.add_widget(nav)
         return root
- 
- 
+
+
 if __name__ == "__main__":
     DashboardApp().run()
-    

@@ -1,5 +1,6 @@
 import datetime
 from dateutil.relativedelta import relativedelta
+import sqlite3
 
 def data_between_times(conn, cursor, start_timestamp, end_timestamp) :
     """
@@ -107,13 +108,15 @@ def average_data_all_rows(data):
 
     return average
 
-    
+'''
+connection = sqlite3.connect('pest_control.db')
+cursor = connection.cursor()
 
-        
-            
+start_date = datetime.datetime(2022, 1, 1, 0, 0, 1)
+end_date = datetime.datetime(2022, 1, 1, 0, 16, 0)
+rows = data_between_times(connection, cursor, start_date, end_date)
 
+print(rows)
 
-
-
-    
+'''
     
