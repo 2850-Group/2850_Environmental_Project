@@ -6,6 +6,7 @@ from Database.Queries.get_row_based_on_date import row_by_timestamp
 from Database.Queries.calculate_average_for_x_days import data_over_x_days
 from Database.Queries.calculate_average_for_x_days import average_data_all_rows
 from Database.Queries.calculate_average_for_x_days import remove_record_null
+from Database.Queries.calculate_average_for_x_days import data_between_times
 
 import os
 DB_PATH = os.path.join(os.path.dirname(__file__), "Database", "Queries", "pest_control.db")
@@ -48,7 +49,7 @@ class Bridge:
         """
         self.conn   = sqlite3.connect(DB_PATH)
         self.cursor = self.conn.cursor()
-        self.timestamp     = datetime.datetime(start_year, start_month, start_day, start_hour, start_minute, 0)
+        self.timestamp     = datetime.datetime(2023, start_month, start_day, start_hour, start_minute, 0)
         self.end_timestamp = datetime.datetime(2023, 12, 31, 23, 15, 0)
         self._clock_event        = None
         self.average_window_days = AVERAGE_WINDOW_DAYS
@@ -92,6 +93,9 @@ class Bridge:
 
         # fetch rows for each site at this timestamp
         rows = row_by_timestamp(self.conn, self.cursor, self.timestamp)
+
+        # filter out the header row (id=1 contains column name strings, not data)
+        rows = [r for r in rows if r[0] != 1 and str(r[2]).startswith('site_')]
 
         if not rows or len(rows) < 3:
             # skip if timestamp is missing data
@@ -139,7 +143,7 @@ class Bridge:
         #self._debug_print(orchard,  orchard_stats,  orchard_alerts,  orchard_flags)
 
         if self.on_tick:
-            self.on_tick(self.maize, self.brassica, self.orchard)
+            self.on_tick(self.maize, self.brassica, self.orchard, self.timestamp)
 
         # advance simulation
         self.timestamp += timedelta(minutes=15)
@@ -166,6 +170,14 @@ class Bridge:
         stats  = list(row[3:9]) + [row[15]]
         alerts = list(row[9:15])
 
+        # cast stats to float — guards against the DB header row leaking through
+        def to_float(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        stats = [to_float(v) for v in stats]
         return stats, alerts
 
     def _compute_average(self, timestamp):
@@ -185,6 +197,11 @@ class Bridge:
         [air_temp, humidity, leaf_wetness, light, vibration, pest_trap_count, rain], or None if there is not enough clean data yet
         """
         raw = data_over_x_days(self.conn, self.cursor, timestamp, self.average_window_days)
+        if not raw:
+            return None
+
+        # strip the DB header row (id=1) before cleaning/averaging
+        raw = [r for r in raw if r[0] != 1 and str(r[2]).startswith('site_')]
         if not raw:
             return None
 
@@ -214,7 +231,8 @@ class Bridge:
         """
         if averages is None:
             return [None] * len(stats)
-        return [s > a for s, a in zip(stats, averages)]
+        return [None if s is None or a is None else s > a
+                for s, a in zip(stats, averages)]
 
     def _format_deltas(self, stats, averages):
         """
@@ -236,7 +254,7 @@ class Bridge:
         if averages is None:
             return ["–"] * len(stats)
         return [
-            f"{(s - a):+.1f}{unit}"
+            "–" if s is None or a is None else f"{(s - a):+.1f}{unit}"
             for s, a, unit in zip(stats, averages, STAT_UNITS)
         ]
 
@@ -295,6 +313,66 @@ class Bridge:
             })
 
         return result
+
+    # stat column mapping: stat index → column index in the DB row
+    # stats order: [air_temp, humidity, leaf_wetness, light, vibration, pest_count, rain]
+    # DB columns:   row[3]   row[4]    row[5]        row[6] row[7]     row[8]      row[15]
+    _STAT_COL   = [3, 4, 5, 6, 7, 8, 15]
+    # DB stores site_id as 'site_maize', 'site_brassica', 'site_orchard'
+    _SITE_DB_ID = {"maize": "site_maize", "brassica": "site_brassica", "orchard": "site_orchard"}
+
+    def get_history(self, site_key, stat_index):
+        """
+        Returns historical data from dataset start up to current simulation time.
+        Adaptively downsamples to ~300 points regardless of how far into the
+        simulation we are, so early runs still produce a drawable graph.
+
+        Parameters
+        ----------
+        site_key   : str - "maize", "brassica", or "orchard"
+        stat_index : int - 0-5 matching STAT_LABELS / card order
+
+        Returns
+        -------
+        timestamps : list of str   - date strings for X-axis labels
+        values     : list of float - stat values for Y-axis
+        """
+        TARGET_POINTS = 300
+
+        site_db_id = self._SITE_DB_ID.get(site_key, "site_maize")
+        col_name   = ["air_temperature_c", "relative_humidity_pct", "leaf_wetness_0_1",
+                      "light_lux", "vibration_level", "pest_trap_count",
+                      "wx_rain_mm_hr"][stat_index]
+
+        self.cursor.execute(
+            f"SELECT time, {col_name} FROM pest_monitoring "
+            f"WHERE site_id = ? AND time >= '2022-01-01 00:00:00' AND time <= ? "
+            f"ORDER BY time ASC",
+            (site_db_id, str(self.timestamp))
+        )
+        rows = self.cursor.fetchall()
+
+        if not rows:
+            return [], []
+
+        # adaptive downsample: keep ~TARGET_POINTS, minimum step of 1
+        step = max(1, len(rows) // TARGET_POINTS)
+        rows = rows[::step]
+
+        timestamps = []
+        values     = []
+        for r in rows:
+            val = r[1]
+            if val is None or val == '':
+                continue
+            try:
+                values.append(float(val))
+                timestamps.append(str(r[0])[:10])
+            except (ValueError, TypeError):
+                continue
+
+        return timestamps, values
+
         
 '''
     def _debug_print(self, row, stats, alerts, flags):
