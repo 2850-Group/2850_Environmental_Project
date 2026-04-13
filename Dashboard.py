@@ -86,7 +86,7 @@ class DataArrow(Widget):
                 #Triangle pointing up
                 Triangle(points=[
                     nx - awidth / 2, ny - aheight / 4,
-                    nx + awidth / 2, ny + aheight / 4,
+                    nx + awidth / 2, ny - aheight / 4,
                     nx,              ny + aheight / 2,
                 ])
             else:
