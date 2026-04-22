@@ -1,5 +1,5 @@
 from kivy.app import App
-from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
@@ -8,24 +8,34 @@ from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.graphics import (
     Color, Rectangle, RoundedRectangle, Line, Ellipse,
-    Canvas, Triangle
+    Canvas, Triangle, InstructionGroup
 )
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from kivy.properties import (
     BooleanProperty, StringProperty, NumericProperty, ListProperty
 )
+from kivy.uix.textinput import TextInput
 from kivy.core.window import Window
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.relativelayout import RelativeLayout
 from kivy.animation import Animation
+from Code.Database.Queries.sign_in import sign_in_query
+from Code.Database.Queries.sign_in import sign_up_query
+import sqlite3
+import bcrypt
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
-from bridge import Bridge
+from Code.bridge import Bridge
 from datetime import datetime
 import random
 import math
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db")
+
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
 
 #Colour Palette
 BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg
@@ -47,6 +57,20 @@ SCREEN_ORDER = ["dashboard", "scan", "profile"]
 
 def rgba(color):
     return color
+
+def  make_label(text, font_size=14, color = NEUTRAL, bold = False, halign='left', height = dp(24)):
+    label = Label(
+        text = text,
+        font_size = font_size,
+        color = color,
+        bold = bold,
+        halign = halign, 
+        valign = "middle",
+        size_hint_y = None,
+        height = height
+    )
+    label.bind(size=lambda inst, val: setattr(inst, 'text_size', (val[0], None)))
+    return label
 
 class Card(BoxLayout):
     bg_color = ListProperty(list(CARD_BG))
@@ -96,6 +120,327 @@ class DataArrow(Widget):
                     nx + awidth / 2, ny + aheight / 4,
                     nx,              ny - aheight / 2,
                 ])
+
+class RoundedCard(FloatLayout):
+    """Rounded card widget"""
+
+    def __init__(self, bg_color=CARD_BG, radius=dp(14), border_color=BORDER, **kwargs):
+        super().__init__(**kwargs)
+        self._bg = bg_color
+        self._radius = radius
+        self._border = border_color
+        self.bind(pos = self._redraw, size=self._redraw)
+
+    def _redraw(self, *_):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self._bg)
+            RoundedRectangle(pos=self.pos, size=self.size,
+                             radius=[self._radius])
+            Color(*self._border)
+            Line(rounded_rectangle=[*self.pos, *self.size, self._radius],
+                 width=1.2)
+            
+class ErrorLabel(Label):
+    """Inline error message"""
+    def __init__(self, **kwargs):
+        super().__init__(
+            text = '', font_size = sp(12), color = ALERT_CRIT,
+            halign='left', valign='middle',
+            size_hint=(1, None), height =0, opacity=0
+        )
+        self.bind(size = lambda w, s:setattr(w, 'text_size',s))
+    
+    def show(self, message):
+        self.text = message
+        self.height = dp(20)
+        self.opacity = 1
+    
+    def hide(self):
+        self.text = ''
+        self.height = 0
+        self.opacity = 0
+            
+class Input(TextInput):
+    """Single line styled text input"""
+
+    def __init__(self, hint='', password=False, **kwargs):
+        super().__init__(
+            hint_text=hint,
+            password=password,
+            multiline=False,
+            background_normal="",
+            background_active="",
+            background_color=SURFACE2,
+            foreground_color=NEUTRAL,
+            hint_text_color=DIM,
+            cursor_color=ACCENT,
+            font_size=22,
+            padding = [dp(8), dp(10), dp(8), 0],
+            size_hint=(1, None),
+            height=dp(44),
+            **kwargs,
+        )
+
+class InputField(BoxLayout):
+    """Wrapper that draws the rounded border around an Input."""
+    def __init__(self, hint='', password=False, **kwargs):
+        kwargs.setdefault('size_hint_y', None)
+        kwargs.setdefault('height', dp(44))
+        super().__init__(**kwargs)
+
+        self._input = Input(hint=hint, password=password)
+        self._input.bind(focus=self._on_focus)
+        self.add_widget(self._input)
+
+        self._border_group = InstructionGroup()
+        self.canvas.after.add(self._border_group)
+        self.bind(pos=self._redraw, size=self._redraw)
+        Clock.schedule_once(lambda dt: self._redraw())
+
+    def _redraw(self, *_):
+        self._border_group.clear()
+        self._border_group.add(
+            Color(*(ACCENT if self._input.focus else BORDER))
+        )
+        self._border_group.add(
+            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width=1.2)
+        )
+
+    def _on_focus(self, inst, focused):
+        self._redraw()
+
+    # Proxy .text so the panels can still do self.username.text
+    @property
+    def text(self):
+        return self._input.text
+
+
+class SignInButton(Button):
+    """Blue sign in button"""
+    def __init__(self, text="Sign In", **kwargs):
+        super().__init__(
+            text=text,
+            background_color=BG,
+            color=NEUTRAL,
+            bold=True,
+            font_size=30,
+            size_hint=(1, None),
+            height=dp(48),
+            **kwargs,
+        )
+        self.bind(pos=self._draw, size=self._draw)
+
+    def _draw(self, *_):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*ACCENT)
+            RoundedRectangle(pos=self.pos, size=self.size,
+                             radius=[dp(8)])
+            
+    def on_press(self):
+        with self.canvas.before:
+            Color(*ACCENT)
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+
+    def on_release(self):
+        self._draw()
+
+class SignUpButton(Button):
+    def __init__(self, text="Sign Up", **kwargs):
+        super().__init__(
+            text=text,
+            background_color=BG,
+            color=NEUTRAL,
+            bold=True,
+            font_size=30,
+            size_hint=(1, None),
+            height=dp(48),
+            **kwargs,
+        )
+        self.bind(pos=self._draw, size=self._draw)
+
+    def _draw(self, *_):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*CARD_BG)
+            RoundedRectangle(pos=self.pos, size=self.size,
+                             radius=[dp(8)])
+            Color(*BORDER)
+            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)],
+                 width=1.2)
+            
+    def on_press(self):
+        self.color = ACCENT2
+        with self.canvas.before:
+            Color(*CARD_BG)
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
+            Color(*ACCENT2)
+            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width = 1.5)
+
+    def on_release(self):
+        self.color=DIM
+        self._draw()
+
+class Divider(BoxLayout):
+    """Line divided sign in and sign up buttons"""  
+    def __init__(self, text='or', **kwargs):
+        super().__init__(orientation='horizontal', size_hint=(1, None),
+                         height=dp(24), spacing=dp(8), **kwargs)      
+        for _ in range(2):
+            line_holder = Widget(size_hint=(1, None), height=dp(1))
+            line_holder.bind(pos=lambda w, *_: self._draw_line(w),
+                             size=lambda w, *_: self._draw_line(w))
+            self._line_holders = getattr(self, '_line_holders', [])
+            self._line_holders.append(line_holder)
+        label = make_label(text, font_size=11, color=BORDER, halign="center", height=dp(24))
+        label.width=dp(30)
+
+        self.add_widget(self._line_holders[0])
+        self.add_widget(label)
+        self.add_widget(self._line_holders[1])
+    
+    def _draw_line(self, widget):
+        widget.canvas.before.clear()
+        with widget.canvas:
+            Color(*BORDER)
+            Line(points=[widget.x, widget.center_y, widget.right, widget.center_y],
+                 width=1)
+            
+class SignInHeader(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(orientation='horizontal', size_hint=(1, None),
+                         height=dp(44), spacing=dp(10), **kwargs)
+
+        name_box = BoxLayout(orientation='horizontal', spacing=0)
+        name_box.add_widget(make_label('Application Name', font_size=48, color=NEUTRAL,
+                                       bold=True,
+                                       height=dp(44)))
+        name_box.add_widget(Widget())
+        self.add_widget(name_box)
+
+class SignInPanel(BoxLayout):
+    def __init__(self, switch_cb, success_cb, **kwargs):
+        super().__init__(orientation = "vertical", spacing=dp(12), **kwargs)
+        self.switch_cb = switch_cb
+        self.success_cb = success_cb
+        self._build()
+
+    def _build(self):
+        self.add_widget(make_label('Welcome', font_size=40,
+                                   color=NEUTRAL, bold=True, height=dp(30)))
+        self.add_widget(make_label('Sign in to your environmental dashboard',
+                                   font_size=35, color=DIM, height=dp(22)))
+        self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
+ 
+        self.add_widget(make_label('USERNAME', font_size=20, color=DIM,
+                                   height=dp(18)))
+        self.username = InputField(hint='e.g. j.farmer')
+        self.add_widget(self.username)
+ 
+        self.add_widget(make_label('PASSWORD', font_size=20, color=DIM,
+                                   height=dp(18)))
+        self.password = InputField(hint='••••••••', password=True)
+        self.add_widget(self.password)
+
+        self._error = ErrorLabel()
+        self.add_widget(self._error)
+ 
+        self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
+ 
+        sign_in = SignInButton(text='Sign in')
+        sign_in.bind(on_release=self._on_sign_in)
+        self.add_widget(sign_in)
+ 
+        self.add_widget(Divider())
+ 
+        signup_btn = SignUpButton(text='Create an account')
+        signup_btn.bind(on_release=lambda *_: self.switch_cb('signup'))
+        self.add_widget(signup_btn)
+ 
+        self.add_widget(Widget())
+    
+    def _on_sign_in(self, *_):
+        user = self.username.text.strip()
+        pwd = self.password.text.strip()
+
+        if not user or not pwd:
+            self._error.show("Please enter your username and password")
+            return
+        
+        success= sign_in_query(conn, cursor, user, pwd)
+        if(success):
+            self._error.hide()
+            self.success_cb()
+        else:
+            self._error.show("Incorrect username or password.")
+
+class SignUpPanel(BoxLayout):
+    def __init__(self, switch_cb, success_cb, **kwargs):
+        super().__init__(orientation='vertical', spacing=dp(12),
+                         size_hint=(1, 1), **kwargs)
+        self.switch_cb = switch_cb
+        self.success_cb = success_cb
+        self._build()
+
+    def _build(self):
+        self.add_widget(make_label('Create account', font_size=20,
+                                   color=NEUTRAL, bold=True, height=dp(30)))
+        self.add_widget(make_label('Start monitoring your crops today',
+                                   font_size=20, color=DIM, height=dp(22)))
+        self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
+ 
+        self.add_widget(make_label('FULL NAME', font_size=20, color=DIM,
+                                   height=dp(18)))
+        self.fullname = InputField(hint='e.g. John Farmer')
+        self.add_widget(self.fullname)
+ 
+        self.add_widget(make_label('USERNAME', font_size=20, color=DIM,
+                                   height=dp(18)))
+        self.username = InputField(hint='e.g. j.farmer')
+        self.add_widget(self.username)
+ 
+        self.add_widget(make_label('PASSWORD', font_size=20, color=DIM,
+                                   height=dp(18)))
+        self.password = InputField(hint='Min. 8 characters', password=True)
+        self.add_widget(self.password)
+
+        self._error = ErrorLabel()
+        self.add_widget(self._error)
+ 
+        self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
+ 
+        sign_in = SignInButton(text='Sign Up')
+        sign_in.bind(on_release=self._on_sign_up)
+        self.add_widget(sign_in)
+
+        self.add_widget(Divider())
+
+        signup_btn = SignUpButton(text='Sign In Instead')
+        signup_btn.bind(on_release=lambda *_: self.switch_cb('login'))
+        self.add_widget(signup_btn)
+ 
+        self.add_widget(Widget())
+    
+    def _on_sign_up(self, *_):
+        name = self.fullname.text.strip()
+        user = self.username.text.strip()
+        pwd = self.password.text.strip()
+
+        if not name or not user or not pwd:
+            self._error.show("All fields are required")
+            return
+        if len(pwd) < 8: 
+            self._error.show("Password must be longer than 8 characters")
+            return
+        
+        success = sign_up_query(conn, cursor, name, user, pwd)
+        if success:
+            self._error.hide()
+            self.success_cb()
+        else: 
+            self._error.show("Username is taken. Please choose another.")
+        
 
 
 class DataCard(Card):
@@ -793,6 +1138,53 @@ def make_bg(widget):
         rect = Rectangle(pos=widget.pos, size=widget.size)
     widget.bind(pos=lambda w, p: setattr(rect, 'pos', p),
                 size=lambda w, s: setattr(rect, 'size', s))
+    
+class SignInScreen(Screen):
+    def __init__(self, on_authenticated, **kwargs):
+        super().__init__(**kwargs)
+        self._on_authenticated = on_authenticated
+        root = FloatLayout()
+
+        with root.canvas.before:
+            Color(*BG)
+            self._bg_rect = RoundedRectangle(pos = root.pos, size = root.size, radius = [0])
+
+        root.bind(pos=lambda w, v: setattr(self._bg_rect, 'pos', v),
+                  size=lambda w, v: setattr(self._bg_rect, 'size', v))
+    
+        card = RoundedCard(
+            size = (dp(360), dp(560)),
+            pos_hint = {"center_x": 0.5, "center_y": 0.5}
+        )
+
+        inner = BoxLayout(
+            orientation='vertical',
+            padding=[dp(28), dp(28)],
+            spacing=dp(0),
+            size_hint = (1,1),
+            pos_hint={'x': 0, 'y': 0},
+        )
+
+        inner.add_widget(SignInHeader())
+
+        self.panel_holder = BoxLayout(orientation='vertical')
+        self.current_panel = None
+        self._show_panel('login')
+
+        inner.add_widget(self.panel_holder)
+        card.add_widget(inner)
+        root.add_widget(card)
+        self.add_widget(root)
+
+    def _show_panel(self, name):
+        self.panel_holder.clear_widgets()
+        if name == 'login':
+            panel = SignInPanel(switch_cb=self._show_panel, success_cb = self._on_authenticated)
+        else:
+            panel = SignUpPanel(switch_cb=self._show_panel, success_cb = self._on_authenticated)
+        self.panel_holder.add_widget(panel)
+        self._current_panel = name
+
 
 
 class DashboardScreen(Screen):
@@ -1085,26 +1477,40 @@ class DashboardHeader(BoxLayout):
 # App Root
 class DashboardApp(App):
     def build(self):
-        self.title = "Dashboard"
+        self.title = "Environmental App"
 
-        sm = ScreenManager()
-        dashboard = DashboardScreen(name="dashboard")
-        sm.add_widget(dashboard)
-        sm.add_widget(ScanScreen(name="scan"))
-        sm.add_widget(ProfileScreen(name="profile"))
+        self._root = BoxLayout(orientation = "vertical")
+
+        self.sm = ScreenManager(transition = NoTransition())
+
+        login_screen = SignInScreen(
+            on_authenticated=self._on_login_success,
+            name = 'login'
+        )
+        self.sm.add_widget(login_screen)
+
+
+        self._dashboard = DashboardScreen(name="dashboard")
+        self._app_sm = ScreenManager()
+        self._app_sm.add_widget(self._dashboard)
+        self._app_sm.add_widget(ScanScreen(name="scan"))
+        self._app_sm.add_widget(ProfileScreen(name="profile"))
 
         self.bridge = Bridge(2022, 1, 1)
-        self.bridge.on_tick = dashboard.on_bridge_tick
+        self.bridge.on_tick = self._dashboard.on_bridge_tick
         self.bridge.start()
 
-        nav = NavBar(screen_manager=sm)
+        self._nav = NavBar(screen_manager=self._app_sm)
         self.header = DashboardHeader()
 
-        root = BoxLayout(orientation="vertical")
-        root.add_widget(self.header)
-        root.add_widget(sm)
-        root.add_widget(nav)
-        return root
+        self._root.add_widget(self.sm)
+        return self._root
+    
+    def _on_login_success(self):
+        self._root.clear_widgets()
+        self._root.add_widget(self.header)
+        self._root.add_widget(self._app_sm)
+        self._root.add_widget(self._nav)
 
 
 if __name__ == "__main__":

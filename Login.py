@@ -1,9 +1,6 @@
-"""
-Login In Screen
-
-Requirements: pip install kivy
-"""
-
+'''
+from Code.Database.Queries.sign_in import sign_in_query
+from Code.Database.Queries.sign_in import sign_up_query
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, NoTransition
 from kivy.uix.boxlayout import BoxLayout
@@ -15,7 +12,12 @@ from kivy.uix.widget import Widget
 from kivy.graphics import Color, RoundedRectangle, Line, Ellipse
 from kivy.core.window import Window
 from kivy.metrics import dp
-from kivy.clock import Clock
+import sqlite3
+import os
+DB_PATH = os.path.join(os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db")
+
+conn = sqlite3.connect(DB_PATH)
+cursor = conn.cursor()
 
 #Colour Palette
 BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg
@@ -31,6 +33,7 @@ BAR_BG     = (0.08, 0.10, 0.14, 1)      # bottom bar bg
 BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
 ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
 ALERT_CRIT = (0.95, 0.30, 0.30, 1)      # red critical
+
 
 def  make_label(text, font_size=14, color = NEUTRAL, bold = False, halign='left', height = dp(24)):
     label = Label(
@@ -197,7 +200,7 @@ class Header(BoxLayout):
                          height=dp(44), spacing=dp(10), **kwargs)
 
         name_box = BoxLayout(orientation='horizontal', spacing=0)
-        name_box.add_widget(make_label('Application Name', font_size=18, color=NEUTRAL,
+        name_box.add_widget(make_label('Application Name', font_size=30, color=NEUTRAL,
                                        bold=True,
                                        height=dp(44)))
         name_box.add_widget(Widget())
@@ -243,6 +246,11 @@ class SignInPanel(BoxLayout):
     def _on_sign_in(self, *_):
         user = self.username.text.strip()
         pwd = self.password.text.strip()
+        success= sign_in_query(conn, cursor, user, pwd)
+        if(success):
+        else:
+
+
 
 class SignUpPanel(BoxLayout):
     def __init__(self, switch_cb, **kwargs):
@@ -275,22 +283,23 @@ class SignUpPanel(BoxLayout):
  
         self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
  
-        create_btn = Button(text='Create account')
-        create_btn.bind(on_release=self._on_create)
-        self.add_widget(create_btn)
- 
+        sign_in = SignInButton(text='Sign Up')
+        sign_in.bind(on_release=self._on_sign_in)
+        self.add_widget(sign_in)
+
         self.add_widget(Divider())
- 
-        signin_btn = Button(text='Sign in instead')
-        signin_btn.bind(on_release=lambda *_: self.switch_cb('login'))
-        self.add_widget(signin_btn)
+
+        signup_btn = SignUpButton(text='Sign In Instead')
+        signup_btn.bind(on_release=lambda *_: self.switch_cb('login'))
+        self.add_widget(signup_btn)
  
         self.add_widget(Widget())
-
-    def _on_create(self, *_):
+    
+    def _on_sign_in(self, *_):
         name = self.fullname.text.strip()
         user = self.username.text.strip()
         pwd = self.password.text.strip()
+        sign_up_query(conn, cursor, name, user, pwd)
 
 class SignInScreen(Screen):
     def __init__(self, **kwargs):
@@ -343,3 +352,4 @@ class EnvironmentalApp(App):
 
 if __name__ == '__main__':
     EnvironmentalApp().run()
+'''
