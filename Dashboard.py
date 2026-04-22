@@ -221,7 +221,7 @@ class SignInButton(Button):
     def __init__(self, text="Sign In", **kwargs):
         super().__init__(
             text=text,
-            background_color=BG,
+            background_color=CARD_BG,
             color=NEUTRAL,
             bold=True,
             font_size=30,
@@ -234,23 +234,30 @@ class SignInButton(Button):
     def _draw(self, *_):
         self.canvas.before.clear()
         with self.canvas.before:
-            Color(*ACCENT)
+            Color(*CARD_BG)
             RoundedRectangle(pos=self.pos, size=self.size,
                              radius=[dp(8)])
+            Color(*BORDER)
+            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)],
+                 width=1.2)
             
     def on_press(self):
+        self.color = ACCENT2
         with self.canvas.before:
-            Color(*ACCENT)
+            Color(*CARD_BG)
             RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
-
+            Color(*ACCENT2)
+            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width = 1.5)
+    
     def on_release(self):
+        self.color=DIM
         self._draw()
 
 class SignUpButton(Button):
     def __init__(self, text="Sign Up", **kwargs):
         super().__init__(
             text=text,
-            background_color=BG,
+            background_color=CARD_BG,
             color=NEUTRAL,
             bold=True,
             font_size=30,
@@ -293,7 +300,7 @@ class Divider(BoxLayout):
                              size=lambda w, *_: self._draw_line(w))
             self._line_holders = getattr(self, '_line_holders', [])
             self._line_holders.append(line_holder)
-        label = make_label(text, font_size=11, color=BORDER, halign="center", height=dp(24))
+        label = make_label(text, font_size=20, color=BORDER, halign="center", height=dp(24))
         label.width=dp(30)
 
         self.add_widget(self._line_holders[0])
@@ -310,12 +317,12 @@ class Divider(BoxLayout):
 class SignInHeader(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation='horizontal', size_hint=(1, None),
-                         height=dp(44), spacing=dp(10), **kwargs)
+                         height=dp(60), spacing=dp(10), **kwargs)
 
         name_box = BoxLayout(orientation='horizontal', spacing=0)
-        name_box.add_widget(make_label('Application Name', font_size=48, color=NEUTRAL,
+        name_box.add_widget(make_label('Application Name', font_size=32, color=NEUTRAL,
                                        bold=True,
-                                       height=dp(44)))
+                                       height=dp(40)))
         name_box.add_widget(Widget())
         self.add_widget(name_box)
 
@@ -384,10 +391,8 @@ class SignUpPanel(BoxLayout):
         self._build()
 
     def _build(self):
-        self.add_widget(make_label('Create account', font_size=20,
-                                   color=NEUTRAL, bold=True, height=dp(30)))
         self.add_widget(make_label('Start monitoring your crops today',
-                                   font_size=20, color=DIM, height=dp(22)))
+                                   font_size=24, color=DIM, height=dp(22)))
         self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
  
         self.add_widget(make_label('FULL NAME', font_size=20, color=DIM,
@@ -1147,27 +1152,29 @@ class SignInScreen(Screen):
 
         with root.canvas.before:
             Color(*BG)
-            self._bg_rect = RoundedRectangle(pos = root.pos, size = root.size, radius = [0])
+            self._bg_rect = RoundedRectangle(pos = root.pos, size = root.size)
 
         root.bind(pos=lambda w, v: setattr(self._bg_rect, 'pos', v),
                   size=lambda w, v: setattr(self._bg_rect, 'size', v))
     
         card = RoundedCard(
-            size = (dp(360), dp(560)),
+            size = (0.9, 0.85),
             pos_hint = {"center_x": 0.5, "center_y": 0.5}
         )
 
         inner = BoxLayout(
             orientation='vertical',
             padding=[dp(28), dp(28)],
-            spacing=dp(0),
+            spacing=dp(8),
             size_hint = (1,1),
-            pos_hint={'x': 0, 'y': 0},
         )
+
+        card.bind(size = lambda w, s: setattr(inner, 'size', s),
+                 pos = lambda w, p:setattr(inner, 'pos', p))
 
         inner.add_widget(SignInHeader())
 
-        self.panel_holder = BoxLayout(orientation='vertical')
+        self.panel_holder = BoxLayout(orientation='vertical', size_hint = (1,1))
         self.current_panel = None
         self._show_panel('login')
 

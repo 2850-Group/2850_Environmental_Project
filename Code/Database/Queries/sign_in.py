@@ -5,7 +5,7 @@ def sign_in_query(conn, cursor, user, pwd):
     pwd_byte = pwd.encode()
     cursor.execute("SELECT password_hash FROM user WHERE username = ?", (user,))
     row = cursor.fetchone()
-    if row and bcrypt.checkpw(pwd.encode(), row[0]):
+    if row and bcrypt.checkpw(pwd_byte, row[0]):
         return True
     else:
         return False
