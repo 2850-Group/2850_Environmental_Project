@@ -46,19 +46,19 @@ conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
 #Colour Palette
-BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg
+BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg 
 CARD_BG    = (0.11, 0.13, 0.18, 1)      # card bg
 SURFACE2   = (0.15, 0.18, 0.24, 1)      # slightly lighter surface
 ACCENT     = (0.22, 0.60, 0.95, 1)      # blue accent
 ACCENT2    = (0.15, 0.82, 0.68, 1)      # teal
 UP_CLR     = (0.20, 0.85, 0.50, 1)      # green = rising
-DOWN_CLR   = (0.95, 0.35, 0.35, 1)      # red = falling
-NEUTRAL    = (0.85, 0.85, 0.85, 1)      # neutral text
-DIM        = (0.50, 0.55, 0.62, 1)      # secondary text
+DOWN_CLR   = (1.00, 0.55, 0.55, 1)      # red = falling
+NEUTRAL    = (0.95, 0.95, 0.95, 1)      # neutral text
+DIM        = (0.66, 0.70, 0.76, 1)      # secondary text
 BAR_BG     = (0.08, 0.10, 0.14, 1)      # bottom bar bg
 BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
 ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
-ALERT_CRIT = (0.95, 0.30, 0.30, 1)      # red critical
+ALERT_CRIT = (1.00, 0.50, 0.50, 1)      # red critical
 
 # Screen order direcetion
 SCREEN_ORDER = ["dashboard", "scan", "profile"]
@@ -66,7 +66,7 @@ SCREEN_ORDER = ["dashboard", "scan", "profile"]
 def rgba(color):
     return color
 
-def  make_label(text, font_size=14, color = NEUTRAL, bold = False, halign='left', height = dp(24)):
+def  make_label(text, font_size=18, color = NEUTRAL, bold = False, halign='left', height = dp(24)):
     label = Label(
         text = text,
         font_size = font_size,
@@ -173,6 +173,8 @@ class Input(TextInput):
     """Single line styled text input"""
 
     def __init__(self, hint='', password=False, **kwargs):
+
+        passed_font_size = kwargs.pop('font_size', 22)
         super().__init__(
             hint_text=hint,
             password=password,
@@ -183,7 +185,7 @@ class Input(TextInput):
             foreground_color=NEUTRAL,
             hint_text_color=DIM,
             cursor_color=ACCENT,
-            font_size=22,
+            font_size=passed_font_size,
             padding = [dp(8), dp(10), dp(8), 0],
             size_hint=(1, None),
             height=dp(44),
@@ -192,12 +194,12 @@ class Input(TextInput):
 
 class InputField(BoxLayout):
     """Wrapper that draws the rounded border around an Input."""
-    def __init__(self, hint='', password=False, **kwargs):
+    def __init__(self, hint='', password=False, font_size='18sp', **kwargs):
         kwargs.setdefault('size_hint_y', None)
         kwargs.setdefault('height', dp(44))
         super().__init__(**kwargs)
 
-        self._input = Input(hint=hint, password=password)
+        self._input = Input(hint=hint, password=password, font_size = font_size)
         self._input.bind(focus=self._on_focus)
         self.add_widget(self._input)
 
@@ -342,18 +344,18 @@ class SignInPanel(BoxLayout):
         self._build()
 
     def _build(self):
-        self.add_widget(make_label('Welcome', font_size=40,
+        self.add_widget(make_label('Welcome', font_size=50,
                                    color=NEUTRAL, bold=True, height=dp(30)))
         self.add_widget(make_label('Sign in to your environmental dashboard',
-                                   font_size=35, color=DIM, height=dp(22)))
+                                   font_size=45, color=DIM, height=dp(22)))
         self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
  
-        self.add_widget(make_label('USERNAME', font_size=20, color=DIM,
+        self.add_widget(make_label('USERNAME', font_size=35, color=DIM,
                                    height=dp(18)))
         self.username = InputField(hint='e.g. j.farmer')
         self.add_widget(self.username)
  
-        self.add_widget(make_label('PASSWORD', font_size=20, color=DIM,
+        self.add_widget(make_label('PASSWORD', font_size=35, color=DIM,
                                    height=dp(18)))
         self.password = InputField(hint='••••••••', password=True)
         self.add_widget(self.password)
