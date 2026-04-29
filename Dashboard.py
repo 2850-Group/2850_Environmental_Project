@@ -1,3 +1,9 @@
+'''Requirements:
+pip install kivy
+pip install bcrypt
+pip install opencv-python'''
+
+
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.uix.gridlayout import GridLayout
@@ -10,6 +16,7 @@ from kivy.graphics import (
     Color, Rectangle, RoundedRectangle, Line, Ellipse,
     Canvas, Triangle, InstructionGroup
 )
+from kivy.uix.camera import Camera
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
 from kivy.properties import (
@@ -33,6 +40,7 @@ import random
 import math
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db")
+os.environ['KIVY_CAMERA'] = 'opencv'
 
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
@@ -439,7 +447,7 @@ class SignUpPanel(BoxLayout):
             self._error.show("Password must be longer than 8 characters")
             return
         
-        success = sign_up_query(conn, cursor, name, user, pwd)
+        success = sign_up_query(conn, cursor, name, user, pwd, name)
         if success:
             self._error.hide()
             self.success_cb()
@@ -1310,65 +1318,32 @@ class ScanScreen(Screen):
 
         layout.add_widget(Label(
             text="Scan", font_size=sp(22), color=NEUTRAL,
-            bold=True, size_hint_y=None, height=dp(40)
+            bold=True, size_hint=(1, None), height=dp(40)
         ))
-
-        # Fake viewfinder
-        vf = Widget(size_hint=(1, 0.55))
-        def draw_vf(*_):
-            vf.canvas.clear()
-            with vf.canvas:
-                # Dark overlay
-                Color(0, 0, 0, 0.6)
-                Rectangle(pos=vf.pos, size=vf.size)
-                # Corner brackets
-                clr = ACCENT
-                Color(*clr)
-                m  = dp(40)
-                bl = dp(24)
-                lw = dp(3)
-                corners = [
-                    # bottom-left
-                    (vf.x + m,      vf.y + m,
-                     vf.x + m + bl, vf.y + m,
-                     vf.x + m,      vf.y + m + bl),
-                    # bottom-right
-                    (vf.right - m,      vf.y + m,
-                     vf.right - m - bl, vf.y + m,
-                     vf.right - m,      vf.y + m + bl),
-                    # top-left
-                    (vf.x + m,      vf.top - m,
-                     vf.x + m + bl, vf.top - m,
-                     vf.x + m,      vf.top - m - bl),
-                    # top-right
-                    (vf.right - m,      vf.top - m,
-                     vf.right - m - bl, vf.top - m,
-                     vf.right - m,      vf.top - m - bl),
-                ]
-                for (x1, y1, x2, y2, x3, y3) in corners:
-                    Line(points=[x1, y1, x2, y2], width=lw)
-                    Line(points=[x1, y1, x3, y3], width=lw)
-                # Scan line
-                Color(*ACCENT2)
-                Line(points=[vf.x + m, vf.center_y,
-                             vf.right - m, vf.center_y], width=dp(1.5))
-        vf.bind(pos=draw_vf, size=draw_vf)
-        layout.add_widget(vf)
 
         layout.add_widget(Label(
             text="Point camera at QR code or device ID",
-            font_size=sp(12), color=DIM, halign="center"
+            font_size=sp(12), color=DIM, halign="center",
+            size_hint=(1, None), height = dp(20)
         ))
+
+        self.camera = Camera(play=True, index = 0, size_hint = (1, 1)) #0 = rear camera 
+
+        layout.add_widget(self.camera)
 
         scan_btn = Button(
             text="Start Scanning", font_size=sp(14),
-            size_hint=(1, None), height=dp(48),
+            height=dp(48),
             background_color=(*ACCENT[:3], 1),
-            color=NEUTRAL, bold=True
+            color=NEUTRAL, bold=True, size_hint = (1, None)
         )
+        scan_btn.bind(on_press=self.capture)
+
         layout.add_widget(scan_btn)
-        layout.add_widget(Widget())
         self.add_widget(layout)
+
+    def capture(self, instance):
+        self.camera.export_to_png('scan.png')
 
 
 class ProfileScreen(Screen):
