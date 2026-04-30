@@ -461,52 +461,87 @@ class SignUpPanel(BoxLayout):
 class DataCard(Card):
     def __init__(self, title, value, unit, direction, delta, **kwargs):
         kwargs.setdefault("orientation", "vertical")
-        kwargs.setdefault("padding", [dp(10), dp(8)])
-        kwargs.setdefault("spacing", dp(2))
+        kwargs.setdefault("padding", [dp(12), dp(10)])
+        kwargs.setdefault("spacing", dp(4))
         super().__init__(**kwargs)
 
-        self.tap_callback = None  # callback: fn() — set by DashboardScreen
+        self.tap_callback = None
+        self._direction = direction
+        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        self._unit = unit
+
+        self.bind(pos=self._draw_top_bar, size=self._draw_top_bar, bg_color=self._draw_top_bar)
+        Clock.schedule_once(self._draw_top_bar)
 
         # Title
-        lbl = Label(text=title, font_size=sp(11), color=DIM,
-                    halign="center", valign="middle", size_hint_y=0.22)
-        lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        self.add_widget(lbl)
+        title_lbl = Label(
+            text=title.upper(), font_size=sp(10), color=DIM,
+            halign="left", valign="middle",
+            size_hint_y=None, height=dp(18)
+        )
+        title_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        self.add_widget(title_lbl)
 
-        # Value
-        row = FloatLayout(size_hint_y=0.45)
-        val = Label(text=f"{value}", font_size=sp(22), color=NEUTRAL,
-                    bold=True, halign="center", valign="middle",
-                    size_hint=(1, 1), pos_hint={"x": 0, "y": -0.1})
+        # Value row — value+unit in markup, arrow right
+        val_row = BoxLayout(
+            orientation="horizontal",
+            size_hint_y=1,
+            spacing=dp(4)
+        )
+
+        val = Label(
+            text=self._fmt(value), font_size=sp(28), color=NEUTRAL,
+            bold=True, halign="left", valign="middle",
+            size_hint=(1, 1), markup=True
+        )
         val.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        self._value_lbl = val  # store ref for update()
+        self._value_lbl = val
 
-        arrow = DataArrow(direction=direction,
-                          size_hint=(None, None), size=(dp(24), dp(24)),
-                          pos_hint={"right": 1, "center_y": 0.5})
-        self._arrow = arrow  # store ref for update()
+        arrow = DataArrow(
+            direction=direction,
+            size_hint=(None, None), size=(dp(20), dp(20)),
+            pos_hint={"center_y": 0.5}
+        )
+        self._arrow = arrow
 
-        row.add_widget(val)
-        row.add_widget(arrow)
-        self.add_widget(row)
+        val_row.add_widget(val)
+        val_row.add_widget(arrow)
+        self.add_widget(val_row)
 
-        # Unit + delta
-        bottom = BoxLayout(size_hint_y=0.33, spacing=dp(6))
+        # Delta row
         delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        unit_lbl = Label(text=unit, font_size=sp(10), color=DIM,
-                         halign="center", valign="middle", size_hint_x=0.5)
-        unit_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        delta_lbl = Label(text=delta, font_size=sp(10), color=delta_clr,
-                          halign="center", valign="middle", size_hint_x=0.5)
+        delta_lbl = Label(
+            text=delta, font_size=sp(10), color=delta_clr,
+            halign="right", valign="middle",
+            size_hint_y=None, height=dp(18)
+        )
         delta_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        self._delta_lbl = delta_lbl  # store ref for update()
+        self._delta_lbl = delta_lbl
+        self.add_widget(delta_lbl)
 
-        bottom.add_widget(unit_lbl)
-        bottom.add_widget(delta_lbl)
-        self.add_widget(bottom)
+    def _fmt(self, value):
+        if self._unit:
+            return f"{value}[size={int(sp(13))}] {self._unit}[/size]"
+        return f"{value}"
+
+    def _draw_top_bar(self, *_):
+        self.canvas.before.clear()
+        with self.canvas.before:
+            Color(*self.bg_color)
+            RoundedRectangle(pos=self.pos, size=self.size, radius=[self.radius])
+            Color(*self._bar_color)
+            Rectangle(
+                pos=(self.x + self.radius, self.top - dp(3)),
+                size=(self.width - self.radius * 2, dp(3))
+            )
+            Color(*BORDER)
+            Line(rounded_rectangle=[*self.pos, *self.size, self.radius], width=1.0)
 
     def update(self, value, direction, delta):
-        self._value_lbl.text  = value
+        self._direction = direction
+        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        self._draw_top_bar()
+        self._value_lbl.text  = self._fmt(value)
         self._arrow.direction = direction
         self._delta_lbl.text  = delta
         self._delta_lbl.color = UP_CLR if direction == "up" else DOWN_CLR
@@ -522,7 +557,6 @@ class DataCard(Card):
                 self.tap_callback()
             return True
         return super().on_touch_up(touch)
-
 #class ExpandableDataCard(BoxLayout):
 
 #class LocationMap(Widget):
@@ -1233,11 +1267,11 @@ class DashboardScreen(Screen):
         STAT_LABELS = ["Temperature", "Humidity", "Leaf Wetness", "Light", "Vibration", "Pest Count"]
         STAT_UNITS  = ["°C", "%", "", "lux", "", ""]
 
-        self._grid = GridLayout(cols=2, rows=3, spacing=dp(10),
-                                size_hint_y=None, height=dp(240))
+        self._grid = GridLayout(cols=2, rows=3, spacing=dp(12),
+                                size_hint_y=None, height=dp(330))
         self._cards = []
         for i in range(6):
-            card = DataCard(STAT_LABELS[i], "-", STAT_UNITS[i], "up", "-",
+            card = DataCard(STAT_LABELS[i], "-", STAT_UNITS[i], "up", "",
                             bg_color=list(CARD_BG))
             # capture i in closure
             card.tap_callback = (lambda idx, lbl=STAT_LABELS[i], unit=STAT_UNITS[i]:
@@ -1286,7 +1320,6 @@ class DashboardScreen(Screen):
             self._render(data)
 
     def _render(self, site):
-        """Update cards and alerts panel from a site data dict."""
         stats  = site["stats"]
         flags  = site["flags"]
         deltas = site["deltas"]
