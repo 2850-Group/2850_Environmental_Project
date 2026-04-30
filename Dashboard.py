@@ -1452,7 +1452,6 @@ class ProfileScreen(Screen):
         ))
 
         # Info cards
-        # CHANGED: role value left blank here; populated in on_enter once user is logged in
         self._role_value_lbl = None
         for (label, value) in [("Role", ""),
                                 ("Location", "Leeds, UK"),
@@ -1475,7 +1474,6 @@ class ProfileScreen(Screen):
         self.add_widget(layout)
 
     def on_enter(self, *_):
-        # CHANGED: update the role label when the screen is shown (user is logged in by then)
         if self._role_value_lbl:
             self._role_value_lbl.text = App.get_running_app().user_role
 
