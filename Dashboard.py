@@ -1,10 +1,13 @@
-'''Requirements:
+'''
+Requirements:
 pip install kivy
 pip install bcrypt
-pip install opencv-python'''
+pip install opencv-python
+pip install kivymd
+'''
 
 
-from kivy.app import App
+from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
@@ -38,6 +41,8 @@ from Code.bridge import Bridge
 from datetime import datetime
 import random
 import math
+from kivymd.uix.label import MDIcon
+from kivy.uix.behaviors import ButtonBehavior
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db")
 os.environ['KIVY_CAMERA'] = 'opencv'
@@ -695,11 +700,19 @@ class AlertRow(BoxLayout):
         detail_h = (self.EXPANDED_H - self.COLLAPSED_H - dp(1)) \
                    if self.expanded else 0
         self._chevron.text = "▾" if self.expanded else "›"
+        
         anim = Animation(height=target_h, duration=0.22, t="out_cubic")
+        # Add an on_complete to refresh layout AFTER the animation finishes
+        anim.bind(on_progress=lambda *args: self._refresh_parent())
         anim.start(self)
+        
         anim2 = Animation(height=detail_h, opacity=int(self.expanded),
                           duration=0.22, t="out_cubic")
         anim2.start(self._detail)
+
+    def _refresh_parent(self):
+        if self.parent:
+            self.parent.do_layout()
 
 
 class AlertsPanel(BoxLayout):
@@ -724,12 +737,6 @@ class AlertsPanel(BoxLayout):
             halign="left", size_hint_x=0.65
         )
         header.add_widget(self._badge)
-        self._toggle_lbl = Label(
-            text="Collapse ▲", font_size=sp(11),
-            color=ACCENT, halign="right", size_hint_x=0.35
-        )
-        header.add_widget(self._toggle_lbl)
-        header.bind(on_touch_down=self._on_touch)
         self.add_widget(header)
 
         with self.canvas.before:
@@ -763,9 +770,13 @@ class AlertsPanel(BoxLayout):
             self.toggle()
             return True
 
-    def _update_height(self):
-        rows_h = self._rows_box.height if self.expanded else 0
-        self.height = dp(44) + rows_h
+    def _update_height(self, *args):
+        # Only include the header height (44) + the actual height of the rows
+        self.height = dp(44) + self._rows_box.height
+        if self.parent:
+            self.parent.do_layout()
+
+    # DELETE the toggle() function entirely so it can't be accidentally triggered
 
     def toggle(self):
         self.expanded = not self.expanded
@@ -776,6 +787,10 @@ class AlertsPanel(BoxLayout):
         else:
             self._rows_box.opacity = 0
             self.height = dp(44)
+        
+        # FIX: Force the scrollview body to recalculate positions
+        if self.parent:
+            self.parent.do_layout()
 
     def update_alerts(self, alert_dicts):
         self._rows_box.clear_widgets()
@@ -800,7 +815,7 @@ class GraphOverlay(FloatLayout):
             timestamps = [...],   # list of date strings
             values     = [...],   # list of floats
         )
-        App.get_running_app().root.add_widget(overlay)
+        MDApp.get_running_app().root.add_widget(overlay)
 
     Tapping the × button or outside the panel removes it.
     """
@@ -1078,16 +1093,50 @@ class GraphOverlay(FloatLayout):
             w.add_widget(lbl)
 
 
+from kivy.uix.behaviors import ButtonBehavior
+
+# Create a custom class that acts like a button but looks like a BoxLayout
+class SiteButton(ButtonBehavior, BoxLayout):
+    def __init__(self, site_key, icon_name, label_text, **kwargs):
+        super().__init__(**kwargs)
+        self.site_key = site_key
+        self.orientation = 'horizontal'
+        self.spacing = dp(4)
+        self.padding = [dp(8), 0]
+        self.size_hint_x = 1
+        
+        # Add the icon and label directly to this class
+        self.icon_widget = MDIcon(
+            icon=icon_name, 
+            font_size=sp(20), 
+            theme_text_color="Custom", 
+            text_color=DIM
+        )
+        self.label_widget = Label(
+            text=label_text, 
+            font_size=sp(14), 
+            color=DIM,
+            bold=False
+        )
+        
+        self.add_widget(self.icon_widget)
+        self.add_widget(self.label_widget)
+        
+        # Draw the background
+        with self.canvas.before:
+            self.bg_color = Color(*CARD_BG)
+            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(6)])
+        self.bind(pos=self._update_rect, size=self._update_rect)
+
+    def _update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+
 class SiteSelectorBar(BoxLayout):
-    """
-    Horizontal pill-button bar for switching between the three monitoring sites.
-    Call set_active(site_key) to highlight the chosen site.
-    Fires on_select(site_key) when the user taps a button.
-    """
     SITES = [
-        ("maize",    "🌽  Maize"),
-        ("brassica", "🥦  Brassica"),
-        ("orchard",  "🍎  Orchard"),
+        ("maize",    "corn",       "Maize"),
+        ("brassica", "sprout",     "Brassica"),
+        ("orchard",  "food-apple", "Orchard"),
     ]
 
     def __init__(self, **kwargs):
@@ -1097,7 +1146,7 @@ class SiteSelectorBar(BoxLayout):
         kwargs.setdefault("padding", [dp(12), dp(6)])
         super().__init__(**kwargs)
 
-        self.on_select = None  # callback: fn(site_key)
+        self.on_select = None
         self._btns = {}
 
         with self.canvas.before:
@@ -1105,18 +1154,9 @@ class SiteSelectorBar(BoxLayout):
             self._bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=self._upd, size=self._upd)
 
-        for key, label in self.SITES:
-            btn = Button(
-                text=label,
-                font_size=sp(11),
-                size_hint_x=1,
-                size_hint_y=1,
-                background_normal="",
-                background_color=(*CARD_BG[:3], 1),
-                color=DIM,
-                bold=False,
-            )
-            btn.site_key = key
+        for key, icon_name, label in self.SITES:
+            # Use our custom SiteButton class
+            btn = SiteButton(site_key=key, icon_name=icon_name, label_text=label)
             btn.bind(on_release=self._on_btn)
             self._btns[key] = btn
             self.add_widget(btn)
@@ -1124,7 +1164,7 @@ class SiteSelectorBar(BoxLayout):
         self.set_active("maize")
 
     def _upd(self, w, *_):
-        self._bg.pos  = w.pos
+        self._bg.pos = w.pos
         self._bg.size = w.size
 
     def _on_btn(self, btn):
@@ -1135,18 +1175,22 @@ class SiteSelectorBar(BoxLayout):
     def set_active(self, site_key):
         for key, btn in self._btns.items():
             if key == site_key:
-                btn.background_color = (*ACCENT[:3], 1)
-                btn.color = (1, 1, 1, 1)
-                btn.bold  = True
+                btn.bg_color.rgba = ACCENT
+                btn.icon_widget.text_color = (1, 1, 1, 1)
+                btn.label_widget.color = (1, 1, 1, 1)
+                btn.label_widget.bold = True
             else:
-                btn.background_color = (*CARD_BG[:3], 1)
-                btn.color = DIM
-                btn.bold  = False
+                btn.bg_color.rgba = CARD_BG
+                btn.icon_widget.text_color = DIM
+                btn.label_widget.color = DIM
+                btn.label_widget.bold = False
 
 
 #Bottom Navigation Bar
 class NavBar(BoxLayout):
     def __init__(self, screen_manager, **kwargs):
+        # 1. FORCE size_hint_x to 1 so it fills the parent width automatically
+        kwargs['size_hint_x'] = 1 
         kwargs.setdefault("size_hint_y", None)
         kwargs.setdefault("height", dp(62))
         kwargs.setdefault("spacing", 0)
@@ -1163,31 +1207,59 @@ class NavBar(BoxLayout):
 
         self._btns = {}
         items = [
-            ("dashboard", "⊞", "Dashboard"),
-            ("scan",      "◎", "Scan"),
-            ("profile",   "⚇", "Profile"),
+            ("dashboard", "view-dashboard", "Dashboard"),
+            ("scan",      "qrcode-scan",    "Scan"),
+            ("profile",   "account-circle", "Profile"),
         ]
         for name, icon, label in items:
             btn = self._make_btn(name, icon, label)
+            # 2. Divide space equally (33.3% each)
+            btn.size_hint_x = 1.0 / len(items)
             self._btns[name] = btn
             self.add_widget(btn)
 
         self._set_active("dashboard")
 
-    def _upd(self, w, *_):
-        self._bg.pos  = w.pos
-        self._bg.size = w.size
-        self._border.pos  = w.pos
-        self._border.size = (w.width, dp(1))
+    def _upd(self, *args):
+        """Update the background and border position/size when the widget changes."""
+        if hasattr(self, '_bg'):
+            self._bg.pos = self.pos
+            self._bg.size = self.size
+        if hasattr(self, '_border'):
+            # Keeps the 1dp border at the very top of the bar
+            self._border.pos = (self.x, self.y + self.height - dp(1))
+            self._border.size = (self.width, dp(1))
 
-    def _make_btn(self, name, icon, label):
-        btn = BoxLayout(orientation="vertical", spacing=dp(2),
-                        padding=[0, dp(8)])
+    def _make_btn(self, name, icon_name, label):
+        # Ensure the button container itself fills its allocated width
+        btn = BoxLayout(orientation="vertical", spacing=0, padding=[0, dp(8)], size_hint_x=1)
         btn.name = name
-        btn._icon_lbl = Label(text=icon, font_size=sp(20),
-                              color=DIM, size_hint_y=0.55)
-        btn._text_lbl = Label(text=label, font_size=sp(9),
-                              color=DIM, size_hint_y=0.45)
+    
+        btn._icon_lbl = MDIcon(
+            icon=icon_name, 
+            font_size=sp(24),
+            theme_text_color="Custom",
+            text_color=DIM,
+            # FIX STARTS HERE
+            halign="center",       # Horizontal alignment
+            valign="middle",       # Vertical alignment
+            size_hint_x=1,         # Ensure it takes the full width of the button segment
+            pos_hint={'center_x': 0.5} # Explicitly anchor to the horizontal center
+            # FIX ENDS HERE
+        )
+        
+        btn._text_lbl = Label(
+            text=label, 
+            font_size=sp(10),
+            color=DIM, 
+            halign="center",
+            valign="top",
+            size_hint=(1, 0.4)
+        )
+        
+        # 3. FIX: Bind text_size to width so halign='center' actually works
+        btn._text_lbl.bind(size=lambda inst, val: setattr(inst, 'text_size', (val[0], None)))
+        
         btn.add_widget(btn._icon_lbl)
         btn.add_widget(btn._text_lbl)
         btn.bind(on_touch_down=lambda w, t: self._nav(w, t))
@@ -1297,6 +1369,15 @@ class DashboardScreen(Screen):
                          padding=[dp(12), dp(14), dp(12), dp(10)])
         body.bind(minimum_height=body.setter('height'))
 
+
+        with body.canvas.before:
+            from kivy.graphics import Color, Rectangle # Ensure these are imported at top of file
+            Color(0.12, 0.14, 0.16, 1)  # This matches your dark theme
+            self._body_bg = Rectangle(pos=body.pos, size=body.size)
+        
+        # This keeps the background size in sync with the body
+        body.bind(pos=self._update_body_bg, size=self._update_body_bg)
+
         # 2 x 3 Data Cards — labels and units match bridge STAT_LABELS order:
         # [air_temp, humidity, leaf_wetness, light, vibration, pest_count]
         STAT_LABELS = ["Temperature", "Humidity", "Leaf Wetness", "Light", "Vibration", "Pest Count"]
@@ -1332,7 +1413,7 @@ class DashboardScreen(Screen):
 
     def _show_graph(self, stat_index, stat_label, stat_unit):
         """Fetch history from bridge and display the graph overlay."""
-        bridge = App.get_running_app().bridge
+        bridge = MDApp.get_running_app().bridge
         timestamps, values = bridge.get_history(self._active_site, stat_index)
 
         if not values:
@@ -1376,7 +1457,11 @@ class DashboardScreen(Screen):
         # Render whichever site is currently selected
         self._render(self._latest[self._active_site])
 
-        App.get_running_app().header.update_time(timestamp)
+        MDApp.get_running_app().header.update_time(timestamp)
+    
+    def _update_body_bg(self, instance, value):
+        self._body_bg.pos = instance.pos
+        self._body_bg.size = instance.size
 
 
 class ScanScreen(Screen):
@@ -1475,7 +1560,7 @@ class ProfileScreen(Screen):
 
     def on_enter(self, *_):
         if self._role_value_lbl:
-            self._role_value_lbl.text = App.get_running_app().user_role
+            self._role_value_lbl.text = MDApp.get_running_app().user_role
 
 
 class DashboardHeader(BoxLayout):
@@ -1535,7 +1620,7 @@ class DashboardHeader(BoxLayout):
 
 
 # App Root
-class DashboardApp(App):
+class DashboardApp(MDApp):
     def build(self):
         self.title = "Environmental App"
 
@@ -1569,8 +1654,11 @@ class DashboardApp(App):
     def _on_login_success(self, role):
         self.user_role = role
         self._root.clear_widgets()
+        self._root.size_hint = (1,1)
+        self._root.pos = (0,0)
         self._root.add_widget(self.header)
         self._root.add_widget(self._app_sm)
+        self._nav.size_hint_x = 1
         self._root.add_widget(self._nav)
 
 
