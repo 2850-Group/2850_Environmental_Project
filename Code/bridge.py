@@ -1,42 +1,392 @@
-"""
-Plan:
-- Run the timer function to increment time every 15 minutes
-- When timer function updates time:
-    - fetch row from the database and send new stats to dashboard
-    - seperate row into statistical data and alerts
-    - create new average to include the new data - average over last 2 weeks for now but potential to be set by user in app
-    - flags to indicate whether the data is greater than or less than average so dashboard arrows can be changed
-    - alert types just as variables
-    - flag for critical, warning and normal
-    - then automated test it all!!!!
-"""
+import sqlite3
+import datetime
+from datetime import timedelta
+from kivy.clock import Clock
+from Database.Queries.get_row_based_on_date import row_by_timestamp
+from Database.Queries.calculate_average_for_x_days import data_over_x_days
+from Database.Queries.calculate_average_for_x_days import average_data_all_rows
+from Database.Queries.calculate_average_for_x_days import remove_record_null
+from Database.Queries.calculate_average_for_x_days import data_between_times
 
-from get_row_based_on_date import *
-from calculate_average_for_x_days import *
-from initialsie_database import *
+import os
+DB_PATH = os.path.join(os.path.dirname(__file__), "Database", "Queries", "pest_control.db")
 
-new_data = timer(conn, cursor)
-maize = new_data[0]
-brassica = new_data[1]
-orchard = new_data[2]
+TICK_INTERVAL = 3  # seconds
 
-maize_stats = []
-brassica_stats = []
-orchard_stats = []
-for i in range(3, 8):
-    maize_stats.append(maize[i])
-    brassica_stats.append(brassica[i])
-    orchard_stats.append(orchard[i])
-maize_stats.append(maize[15])
-brassica_stats.append(brassica[15])
-orchard_stats.append(orchard[15])
+SITE_MAIZE    = 0
+SITE_BRASSICA = 1
+SITE_ORCHARD  = 2
 
-maize_alerts = []
-brassica_alerts = []
-orchard_alerts = []
-for i in range(9, 14):
-    maize_alerts.append(maize[i])
-    brassica_alerts.append(brassica[i])
-    orchard_alerts.append(orchard[i])
+AVERAGE_WINDOW_DAYS = 14
+
+STAT_LABELS = ["air_temp", "humidity", "leaf_wetness", "light", "vibration", "pest_count", "rain"]
+# [air_temp, humidity, leaf_wetness, light, vibration, pest_count, rain]
+STAT_UNITS  = ["°C", "%", "", " lux", "", "", " mm/hr"]
+
+LEVEL_CRITICAL = "critical"
+LEVEL_WARNING  = "warning"
+LEVEL_NORMAL   = "normal"
+
+class Bridge:
+    """
+    connects pest_control to dashboard
+
+    each tick we: fetch site rows for timestamp
+    parse these rows into stats/alerts
+    find average over last AVERAGE_WINDOW_DAYS
+    produce flags (up/down) per stat
+    stores all this in self.maize/brassica/orchard so dashboard can read them
+    """
+
+    def __init__(self, start_year=2022, start_month=1, start_day=1, start_hour=0, start_minute=0):
+        """
+        opens db connection, initialises timestamp
+
+        Parameters
+        ----------
+        start_year, start_month, start_day, start_hour, start_minute : int
+            where we start reading data from
+        """
+        self.conn   = sqlite3.connect(DB_PATH)
+        self.cursor = self.conn.cursor()
+        self.timestamp     = datetime.datetime(2023, start_month, start_day, start_hour, start_minute, 0)
+        self.end_timestamp = datetime.datetime(2023, 12, 31, 23, 15, 0)
+        self._clock_event        = None
+        self.average_window_days = AVERAGE_WINDOW_DAYS
+        self.on_tick             = None
+        self.maize    = None
+        self.brassica = None
+        self.orchard  = None
+
+    def start(self):
+        """
+        starts simulation
+        """
+        print(f"Bridge: starting from {self.timestamp}")
+        self._clock_event = Clock.schedule_interval(self.tick, TICK_INTERVAL)
+
+    def stop(self):
+        """
+        close db connection
+        """
+        if self._clock_event:
+            self._clock_event.cancel()
+            self._clock_event = None
+        self.conn.close()
+        print("Bridge: stopped.")
+
+    def tick(self, dt):
+        """
+        called every TICK_INTERVAL seconds
+        advances time by 15 mins, fetches db rows, parses db rows, find averages+flags
+
+        Parameters
+        ----------
+        dt : float
+            time delta since last call 
+        """
+
+        if self.timestamp >= self.end_timestamp:
+            print("Bridge: reached end of dataset.")
+            self.stop()
+            return
+
+        # fetch rows for each site at this timestamp
+        rows = row_by_timestamp(self.conn, self.cursor, self.timestamp)
+
+        # filter out the header row (id=1 contains column name strings, not data)
+        rows = [r for r in rows if r[0] != 1 and str(r[2]).startswith('site_')]
+
+        if not rows or len(rows) < 3:
+            # skip if timestamp is missing data
+            print(f"Bridge [{self.timestamp}]: incomplete data, skipping.")
+            self.timestamp += timedelta(minutes=15)
+            return
+
+        maize    = rows[SITE_MAIZE]
+        brassica = rows[SITE_BRASSICA]
+        orchard  = rows[SITE_ORCHARD]
+
+        # parse each row into stats/alerts
+        maize_stats,    maize_alerts    = self._parse_row(maize)
+        brassica_stats, brassica_alerts = self._parse_row(brassica)
+        orchard_stats,  orchard_alerts  = self._parse_row(orchard)
+
+        # cross-site average for now, should add individual average later???
+        averages = self._compute_average(self.timestamp)
+
+        # if returns true: current > average
+        maize_flags    = self._compute_flags(maize_stats, averages)
+        brassica_flags = self._compute_flags(brassica_stats, averages)
+        orchard_flags  = self._compute_flags(orchard_stats, averages)
+
+        # format deltas and convert allerts to dicts
+        maize_deltas    = self._format_deltas(maize_stats, averages)
+        brassica_deltas = self._format_deltas(brassica_stats, averages)
+        orchard_deltas  = self._format_deltas(orchard_stats, averages)
+
+        maize_alert_dicts    = self._alerts_to_dicts(maize_alerts)
+        brassica_alert_dicts = self._alerts_to_dicts(brassica_alerts)
+        orchard_alert_dicts  = self._alerts_to_dicts(orchard_alerts)
+
+        # these store latest data for each stie (dashboard should read this)
+        self.maize    = {"stats": maize_stats,    "flags": maize_flags,
+                         "deltas": maize_deltas,  "alerts": maize_alert_dicts}
+        self.brassica = {"stats": brassica_stats, "flags": brassica_flags,
+                         "deltas": brassica_deltas, "alerts": brassica_alert_dicts}
+        self.orchard  = {"stats": orchard_stats,  "flags": orchard_flags,
+                         "deltas": orchard_deltas,  "alerts": orchard_alert_dicts}
+
+        #temp
+        #self._debug_print(maize,    maize_stats,    maize_alerts,    maize_flags)
+        #self._debug_print(brassica, brassica_stats, brassica_alerts, brassica_flags)
+        #self._debug_print(orchard,  orchard_stats,  orchard_alerts,  orchard_flags)
+
+        if self.on_tick:
+            self.on_tick(self.maize, self.brassica, self.orchard, self.timestamp)
+
+        # advance simulation
+        self.timestamp += timedelta(minutes=15)
 
 
+    def _parse_row(self, row):
+        """
+        splits row into stats and alerts lists
+
+        Stats: air_temp, humidity, leaf_wetness, light, vibration, pest_trap_count, rain
+
+        Alerts: status, alert_triggered, alert_pest_action, alert_pest_outbreak, alert_disease_moderate, alert_disease_high
+
+        Parameters
+        ----------
+        row : tuple
+            row from pest_monitoring
+
+        Returns
+        -------
+        stats : list
+        alerts : list
+        """
+        stats  = list(row[3:9]) + [row[15]]
+        alerts = list(row[9:15])
+
+        # cast stats to float — guards against the DB header row leaking through
+        def to_float(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        stats = [to_float(v) for v in stats]
+        return stats, alerts
+
+    def _compute_average(self, timestamp):
+        """
+        find AVERAGE_WINDOW_DAYS rolling average
+
+        fetches all rows in the window, strips rows with null/empty values, then averages the stat columns
+
+        Parameters
+        ----------
+        timestamp : datetime.datetime
+            Upper bound of the averaging window (current simulation time)
+
+        Returns
+        -------
+        list or None
+        [air_temp, humidity, leaf_wetness, light, vibration, pest_trap_count, rain], or None if there is not enough clean data yet
+        """
+        raw = data_over_x_days(self.conn, self.cursor, timestamp, self.average_window_days)
+        if not raw:
+            return None
+
+        # strip the DB header row (id=1) before cleaning/averaging
+        raw = [r for r in raw if r[0] != 1 and str(r[2]).startswith('site_')]
+        if not raw:
+            return None
+
+        clean = remove_record_null(raw)
+        if not clean:
+            return None
+
+        return average_data_all_rows(clean)
+
+    def _compute_flags(self, stats, averages):
+        """
+        compares each current stat against the average from last window
+
+        Parameters
+        ----------
+        stats : list
+            current stat values from _parse_row
+        averages : list or None
+            rooling average values from _compute_average or None if no average available
+
+        Returns
+        -------
+        list of bool or None
+            one entry per stat: True = above average (up arrow)
+            False = below average (down arrow)
+            None = no average
+        """
+        if averages is None:
+            return [None] * len(stats)
+        return [None if s is None or a is None else s > a
+                for s, a in zip(stats, averages)]
+
+    def _format_deltas(self, stats, averages):
+        """
+        produces delta string for each stat
+
+        returns '-' if no average available yet
+        otherwise returns strings like '+1.2degreeC' // '-3%' etc
+
+        Parameters
+        ----------
+        stats    : list  - current stat values
+        averages : list or None - rolling average values or None.
+
+        Returns
+        -------
+        list of str
+            one formatted string per stat
+        """
+        if averages is None:
+            return ["–"] * len(stats)
+        return [
+            "–" if s is None or a is None else f"{(s - a):+.1f}{unit}"
+            for s, a, unit in zip(stats, averages, STAT_UNITS)
+        ]
+
+    def _alerts_to_dicts(self, alerts):
+        """
+        converts alerts fields into list of alert dicts, so dashboard can display directly 
+
+        Parameters
+        ----------
+        alerts : list
+            Six values from _parse_row: [status, triggered, pest_action, pest_outbreak, disease_moderate, disease_high]
+
+        Returns
+        -------
+        list of dict
+            Each dict has keys: "level", "title", "summary", "detail".
+        """
+        status, triggered, pest_action, pest_outbreak, disease_mod, disease_high = alerts
+        result = []
+
+        if disease_high:
+            result.append({
+                "level":   LEVEL_CRITICAL,
+                "title":   "High Disease Risk",
+                "summary": f"Status: {status}",
+                "detail":  "Disease risk is critically high. Immediate action required."
+            })
+        if pest_outbreak:
+            result.append({
+                "level":   LEVEL_CRITICAL,
+                "title":   "Pest Outbreak",
+                "summary": f"Status: {status}",
+                "detail":  "Pest outbreak detected. Immediate action required."
+            })
+        if disease_mod:
+            result.append({
+                "level":   LEVEL_WARNING,
+                "title":   "Moderate Disease Risk",
+                "summary": f"Status: {status}",
+                "detail":  "Disease risk is elevated. Monitor closely."
+            })
+        if pest_action:
+            result.append({
+                "level":   LEVEL_WARNING,
+                "title":   "Pest Action Required",
+                "summary": f"Status: {status}",
+                "detail":  "Pest levels require attention."
+            })
+
+        if not result:
+            result.append({
+                "level":   LEVEL_NORMAL,
+                "title":   "All Clear",
+                "summary": f"Status: {status}",
+                "detail":  "No active alerts at this time."
+            })
+
+        return result
+
+    # stat column mapping: stat index → column index in the DB row
+    # stats order: [air_temp, humidity, leaf_wetness, light, vibration, pest_count, rain]
+    # DB columns:   row[3]   row[4]    row[5]        row[6] row[7]     row[8]      row[15]
+    _STAT_COL   = [3, 4, 5, 6, 7, 8, 15]
+    # DB stores site_id as 'site_maize', 'site_brassica', 'site_orchard'
+    _SITE_DB_ID = {"maize": "site_maize", "brassica": "site_brassica", "orchard": "site_orchard"}
+
+    def get_history(self, site_key, stat_index):
+        """
+        Returns historical data from dataset start up to current simulation time.
+        Adaptively downsamples to ~300 points regardless of how far into the
+        simulation we are, so early runs still produce a drawable graph.
+
+        Parameters
+        ----------
+        site_key   : str - "maize", "brassica", or "orchard"
+        stat_index : int - 0-5 matching STAT_LABELS / card order
+
+        Returns
+        -------
+        timestamps : list of str   - date strings for X-axis labels
+        values     : list of float - stat values for Y-axis
+        """
+        TARGET_POINTS = 300
+
+        site_db_id = self._SITE_DB_ID.get(site_key, "site_maize")
+        col_name   = ["air_temperature_c", "relative_humidity_pct", "leaf_wetness_0_1",
+                      "light_lux", "vibration_level", "pest_trap_count",
+                      "wx_rain_mm_hr"][stat_index]
+
+        self.cursor.execute(
+            f"SELECT time, {col_name} FROM pest_monitoring "
+            f"WHERE site_id = ? AND time >= '2022-01-01 00:00:00' AND time <= ? "
+            f"ORDER BY time ASC",
+            (site_db_id, str(self.timestamp))
+        )
+        rows = self.cursor.fetchall()
+
+        if not rows:
+            return [], []
+
+        # adaptive downsample: keep ~TARGET_POINTS, minimum step of 1
+        step = max(1, len(rows) // TARGET_POINTS)
+        rows = rows[::step]
+
+        timestamps = []
+        values     = []
+        for r in rows:
+            val = r[1]
+            if val is None or val == '':
+                continue
+            try:
+                values.append(float(val))
+                timestamps.append(str(r[0])[:10])
+            except (ValueError, TypeError):
+                continue
+
+        return timestamps, values
+
+        
+'''
+    def _debug_print(self, row, stats, alerts, flags):
+        stat_labels  = ["air_temp", "humidity", "leaf_wet",
+                        "light", "vibration", "pest_count", "rain"]
+        alert_labels = ["status", "triggered", "pest_action",
+                        "pest_outbreak", "disease_mod", "disease_high"]
+
+        site = row[2]
+        time = row[1]
+        print(f"\n  [{time}]  site={site}")
+        for label, val, flag in zip(stat_labels, stats, flags):
+            arrow = "▲" if flag else ("▼" if flag is False else "–")
+            print(f"    {label:<14} {val}  {arrow}")
+        for label, val in zip(alert_labels, alerts):
+            print(f"    {label:<14} {val}")
+'''

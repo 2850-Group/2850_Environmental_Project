@@ -31,6 +31,7 @@ create_table_pest = '''CREATE TABLE pest_monitoring(
 
 create_table_user = '''CREATE TABLE user(
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fullname varchar NOT NULL,
                 username varchar NOT NULL,
                 password_hash varchar NOT NULL,
                 role varchar NOT NULL);
