@@ -384,11 +384,11 @@ class SignInPanel(BoxLayout):
         if not user or not pwd:
             self._error.show("Please enter your username and password")
             return
-        
-        success= sign_in_query(conn, cursor, user, pwd)
-        if(success):
+
+        role = sign_in_query(conn, cursor, user, pwd)
+        if role:
             self._error.hide()
-            self.success_cb()
+            self.success_cb(role)
         else:
             self._error.show("Incorrect username or password.")
 
@@ -398,6 +398,7 @@ class SignUpPanel(BoxLayout):
                          size_hint=(1, 1), **kwargs)
         self.switch_cb = switch_cb
         self.success_cb = success_cb
+        self._selected_role = "Farmer" # default selected role
         self._build()
 
     def _build(self):
@@ -420,11 +421,20 @@ class SignUpPanel(BoxLayout):
         self.password = InputField(hint='Min. 8 characters', password=True)
         self.add_widget(self.password)
 
+        self.add_widget(make_label('I AM A', font_size=20, color=DIM, height=dp(18)))
+        role_row = BoxLayout(orientation='horizontal', spacing=dp(8), size_hint=(1, None), height=dp(40))
+        self._farmer_btn = self._role_btn("Farmer")
+        self._researcher_btn = self._role_btn("Researcher")
+        role_row.add_widget(self._farmer_btn)
+        role_row.add_widget(self._researcher_btn)
+        self.add_widget(role_row)
+        self._set_role("Farmer")
+
         self._error = ErrorLabel()
         self.add_widget(self._error)
- 
+
         self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
- 
+
         sign_in = SignInButton(text='Sign Up')
         sign_in.bind(on_release=self._on_sign_up)
         self.add_widget(sign_in)
@@ -437,6 +447,31 @@ class SignUpPanel(BoxLayout):
  
         self.add_widget(Widget())
     
+    def _role_btn(self, label):
+        btn = Button(text=label, font_size=sp(13), bold=True, size_hint=(1, 1), background_normal='', background_color=(0, 0, 0, 0))
+        btn.bind(on_release=lambda *_: self._set_role(label))
+        btn.bind(pos=self._draw_role_btn, size=self._draw_role_btn)
+        return btn
+
+    def _draw_role_btn(self, btn, *_):
+        btn.canvas.before.clear()
+        with btn.canvas.before:
+            if self._selected_role == btn.text:
+                Color(*ACCENT)
+                btn.color = NEUTRAL
+            else:
+                Color(*CARD_BG)
+                btn.color = DIM
+            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+            if self._selected_role != btn.text:
+                Color(*BORDER)
+                Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, dp(6)], width=1)
+
+    def _set_role(self, role):
+        self._selected_role = role
+        self._draw_role_btn(self._farmer_btn)
+        self._draw_role_btn(self._researcher_btn)
+
     def _on_sign_up(self, *_):
         name = self.fullname.text.strip()
         user = self.username.text.strip()
@@ -445,15 +480,15 @@ class SignUpPanel(BoxLayout):
         if not name or not user or not pwd:
             self._error.show("All fields are required")
             return
-        if len(pwd) < 8: 
+        if len(pwd) < 8:
             self._error.show("Password must be longer than 8 characters")
             return
-        
-        success = sign_up_query(conn, cursor, name, user, pwd, name)
+
+        success = sign_up_query(conn, cursor, name, user, pwd, name, self._selected_role)
         if success:
             self._error.hide()
-            self.success_cb()
-        else: 
+            self.success_cb(self._selected_role)
+        else:
             self._error.show("Username is taken. Please choose another.")
         
 
@@ -1417,7 +1452,8 @@ class ProfileScreen(Screen):
         ))
 
         # Info cards
-        for (label, value) in [("Role", "Senior Engineer"),
+        self._role_value_lbl = None
+        for (label, value) in [("Role", ""),
                                 ("Location", "Leeds, UK"),
                                 ("Devices", "7 connected"),
                                 ("Plan", "Pro")]:
@@ -1427,12 +1463,19 @@ class ProfileScreen(Screen):
                        padding=[dp(14), 0])
             row.add_widget(Label(text=label, font_size=sp(12),
                                  color=DIM, halign="left"))
-            row.add_widget(Label(text=value, font_size=sp(12),
-                                 color=NEUTRAL, halign="right"))
+            val_lbl = Label(text=value, font_size=sp(12),
+                            color=NEUTRAL, halign="right")
+            row.add_widget(val_lbl)
             layout.add_widget(row)
+            if label == "Role":
+                self._role_value_lbl = val_lbl
 
         layout.add_widget(Widget())
         self.add_widget(layout)
+
+    def on_enter(self, *_):
+        if self._role_value_lbl:
+            self._role_value_lbl.text = App.get_running_app().user_role
 
 
 class DashboardHeader(BoxLayout):
@@ -1523,7 +1566,8 @@ class DashboardApp(App):
         self._root.add_widget(self.sm)
         return self._root
     
-    def _on_login_success(self):
+    def _on_login_success(self, role):
+        self.user_role = role
         self._root.clear_widgets()
         self._root.add_widget(self.header)
         self._root.add_widget(self._app_sm)
