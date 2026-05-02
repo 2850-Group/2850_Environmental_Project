@@ -183,44 +183,61 @@ class DataArrow(Widget):
                     nx,              ny - aheight / 2,
                 ])
 
+# Used for modal/auth containers
 class RoundedCard(FloatLayout):
-    """Rounded card widget"""
-
-    def __init__(self, bg_color=CARD_BG, radius=dp(14), border_color=BORDER, **kwargs):
+    def __init__(self, bg_color=CARD_BG, radius=RADIUS_LG, border_color=BORDER, **kwargs):
         super().__init__(**kwargs)
-        self._bg = bg_color
+        self._bg     = bg_color
         self._radius = radius
         self._border = border_color
-        self.bind(pos = self._redraw, size=self._redraw)
+        self.bind(pos=self._redraw, size=self._redraw)
+        Clock.schedule_once(self._redraw)
 
     def _redraw(self, *_):
         self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r    = float(self._radius)
         with self.canvas.before:
+            Color(*SHADOW_CLR)
+            if BoxShadow is not None:
+                BoxShadow(
+                    pos=(x, y), size=(w, h),
+                    offset=(0, -dp(8)),
+                    blur_radius=dp(32),
+                    spread_radius=(-dp(12), -dp(12)),
+                    border_radius=(r, r, r, r),
+                )
+            else:
+                RoundedRectangle(pos=(x, y - ELEV_Y), size=(w, h + ELEV_Y), radius=[r])
             Color(*self._bg)
-            RoundedRectangle(pos=self.pos, size=self.size,
-                             radius=[self._radius])
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*OVERLAY_LIGHT)
+            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
             Color(*self._border)
-            Line(rounded_rectangle=[*self.pos, *self.size, self._radius],
-                 width=1.2)
-            
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
+
+# Inline error label (hidden by default)
 class ErrorLabel(Label):
-    """Inline error message"""
     def __init__(self, **kwargs):
         super().__init__(
-            text = '', font_size = sp(12), color = ALERT_CRIT,
+            text='',
+            font_name=FONT_NAME,
+            font_size=sp(12),
+            color=ALERT_CRIT,
             halign='left', valign='middle',
-            size_hint=(1, None), height =0, opacity=0
+            size_hint=(1, None), height=0, opacity=0,
         )
-        self.bind(size = lambda w, s:setattr(w, 'text_size',s))
-    
+        self.bind(size=lambda w, s: setattr(w, 'text_size', s))
+
     def show(self, message):
-        self.text = message
-        self.height = dp(20)
+        self.text    = message
+        self.height  = dp(20)
         self.opacity = 1
-    
+
     def hide(self):
-        self.text = ''
-        self.height = 0
+        self.text    = ''
+        self.height  = 0
         self.opacity = 0
             
 class Input(TextInput):
