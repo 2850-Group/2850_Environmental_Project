@@ -547,49 +547,37 @@ class SignUpPanel(BoxLayout):
         else:
             self._error.show("Username is taken. Please choose another.")
 
+# Data cards
+
+# Stat card
 class DataCard(Card):
     def __init__(self, title, value, unit, direction, delta, **kwargs):
         kwargs.setdefault("orientation", "vertical")
         kwargs.setdefault("padding", [dp(12), dp(10)])
-        kwargs.setdefault("spacing", dp(4))
+        kwargs.setdefault("spacing", dp(6))
+        kwargs.setdefault("draw_panel", False)
         super().__init__(**kwargs)
 
         self.tap_callback = None
-        self._direction = direction
-        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
-        self._unit = unit
+        self._direction   = direction
+        self._bar_color   = UP_CLR if direction == "up" else DOWN_CLR
+        self._unit        = unit
 
         self.bind(pos=self._draw_top_bar, size=self._draw_top_bar, bg_color=self._draw_top_bar)
         Clock.schedule_once(self._draw_top_bar)
 
-        # Title
-        title_lbl = Label(
-            text=title.upper(), font_size=sp(10), color=DIM,
-            halign="left", valign="middle",
-            size_hint_y=None, height=dp(18)
-        )
-        title_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
-        self.add_widget(title_lbl)
+        self.add_widget(make_label(title.upper(), font_size=sp(9), color=DIM, bold=True,
+                                   height=dp(16), shorten=True, shorten_from="right"))
 
-        # Value row — value+unit in markup, arrow right
-        val_row = BoxLayout(
-            orientation="horizontal",
-            size_hint_y=1,
-            spacing=dp(4)
-        )
-
-        val = Label(
-            text=self._fmt(value), font_size=sp(28), color=NEUTRAL,
-            bold=True, halign="left", valign="middle",
-            size_hint=(1, 1), markup=True
-        )
-        val.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        val_row = BoxLayout(orientation="horizontal", size_hint_y=1, spacing=dp(4))
+        val = make_label(self._fmt(value), font_size=sp(24), color=NEUTRAL, bold=True,
+                         halign="left", size_hint=(1, 1), markup=True)
         self._value_lbl = val
 
         arrow = DataArrow(
             direction=direction,
             size_hint=(None, None), size=(dp(20), dp(20)),
-            pos_hint={"center_y": 0.5}
+            pos_hint={"center_y": 0.5},
         )
         self._arrow = arrow
 
@@ -597,34 +585,35 @@ class DataCard(Card):
         val_row.add_widget(arrow)
         self.add_widget(val_row)
 
-        # Delta row
         delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        delta_lbl = Label(
-            text=delta, font_size=sp(10), color=delta_clr,
-            halign="right", valign="middle",
-            size_hint_y=None, height=dp(18)
-        )
-        delta_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        delta_lbl = make_label(delta, font_size=sp(9), color=delta_clr, halign="right",
+                               height=dp(16), shorten=True, shorten_from="right")
         self._delta_lbl = delta_lbl
         self.add_widget(delta_lbl)
 
     def _fmt(self, value):
         if self._unit:
-            return f"{value}[size={int(sp(13))}] {self._unit}[/size]"
+            return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
         return f"{value}"
 
     def _draw_top_bar(self, *_):
         self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r    = float(self.radius)
         with self.canvas.before:
             Color(*self.bg_color)
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[self.radius])
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
             Color(*self._bar_color)
-            Rectangle(
-                pos=(self.x + self.radius, self.top - dp(3)),
-                size=(self.width - self.radius * 2, dp(3))
+            RoundedRectangle(
+                pos=(x + dp(12), y + dp(2)),
+                size=(max(0, w - dp(24)), dp(2)),
+                radius=[dp(1)],
             )
+            Color(*OVERLAY_SUBTLE)
+            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
             Color(*BORDER)
-            Line(rounded_rectangle=[*self.pos, *self.size, self.radius], width=1.0)
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
 
     def update(self, value, direction, delta):
         self._direction = direction
@@ -646,13 +635,6 @@ class DataCard(Card):
                 self.tap_callback()
             return True
         return super().on_touch_up(touch)
-#class ExpandableDataCard(BoxLayout):
-
-#class LocationMap(Widget):
-    #location map drawn with canvas
-
-#class ExpandableLocationMap(BoxLayout):
-
 
 #Alert Panel
 
