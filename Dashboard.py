@@ -363,84 +363,71 @@ class SignUpButton(Button):
             Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
 
 
+# Divider row
 class Divider(BoxLayout):
-    """Line divided sign in and sign up buttons"""  
+    """Line divided sign in and sign up buttons"""
     def __init__(self, text='or', **kwargs):
         super().__init__(orientation='horizontal', size_hint=(1, None),
-                         height=dp(24), spacing=dp(8), **kwargs)      
+                         height=dp(24), spacing=dp(8), **kwargs)
+        
+        self._line_holders = [] 
         for _ in range(2):
-            line_holder = Widget(size_hint=(1, None), height=dp(1))
-            line_holder.bind(pos=lambda w, *_: self._draw_line(w),
-                             size=lambda w, *_: self._draw_line(w))
-            self._line_holders = getattr(self, '_line_holders', [])
-            self._line_holders.append(line_holder)
-        label = make_label(text, font_size=20, color=BORDER, halign="center", height=dp(24))
-        label.width=dp(30)
+            lh = Widget(size_hint=(1, None), height=dp(1))
+            lh.bind(pos=lambda w, *_: self._draw_line(w),
+                    size=lambda w, *_: self._draw_line(w))
+            self._line_holders.append(lh)
+        
+        label = make_label(text, font_size=sp(12), color=DIM, halign="center", height=dp(18))
+        label.width = dp(30)
 
         self.add_widget(self._line_holders[0])
         self.add_widget(label)
         self.add_widget(self._line_holders[1])
-    
+
     def _draw_line(self, widget):
         widget.canvas.before.clear()
         with widget.canvas:
             Color(*BORDER)
-            Line(points=[widget.x, widget.center_y, widget.right, widget.center_y],
-                 width=1)
-            
-class SignInHeader(BoxLayout):
-    def __init__(self, **kwargs):
-        super().__init__(orientation='horizontal', size_hint=(1, None),
-                         height=dp(60), spacing=dp(10), **kwargs)
+            Line(points=[widget.x, widget.center_y, widget.right, widget.center_y], width=1)
 
-        name_box = BoxLayout(orientation='horizontal', spacing=0)
-        name_box.add_widget(make_label('Application Name', font_size=32, color=NEUTRAL,
-                                       bold=True,
-                                       height=dp(40)))
-        name_box.add_widget(Widget())
-        self.add_widget(name_box)
 
 class SignInPanel(BoxLayout):
     def __init__(self, switch_cb, success_cb, **kwargs):
-        super().__init__(orientation = "vertical", spacing=dp(12), **kwargs)
+        super().__init__(orientation="vertical", spacing=dp(12), **kwargs)
         self.switch_cb = switch_cb
         self.success_cb = success_cb
         self._build()
 
     def _build(self):
-        self.add_widget(make_label('Welcome', font_size=50,
-                                   color=NEUTRAL, bold=True, height=dp(30)))
-        self.add_widget(make_label('Sign in to your environmental dashboard',
-                                   font_size=45, color=DIM, height=dp(22)))
-        self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
- 
-        self.add_widget(make_label('USERNAME', font_size=35, color=DIM,
-                                   height=dp(18)))
+        self.add_widget(make_label('Welcome', font_size=sp(28), color=NEUTRAL, bold=True, height=dp(34)))
+        self.add_widget(make_label('Sign in to your environmental dashboard', font_size=sp(14), color=DIM, height=dp(22)))
+        self.add_widget(Widget(size_hint=(1, None), height=dp(10)))
+
+        self.add_widget(make_label('USERNAME', font_size=sp(11), color=DIM, height=dp(16)))
         self.username = InputField(hint='e.g. j.farmer')
         self.add_widget(self.username)
- 
-        self.add_widget(make_label('PASSWORD', font_size=35, color=DIM,
-                                   height=dp(18)))
+
+        self.add_widget(make_label('PASSWORD', font_size=sp(11), color=DIM, height=dp(16)))
         self.password = InputField(hint='••••••••', password=True)
         self.add_widget(self.password)
 
         self._error = ErrorLabel()
         self.add_widget(self._error)
- 
+
         self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
- 
-        sign_in = SignInButton(text='Sign in')
+
+        sign_in = SignInButton(text='Sign In')
         sign_in.bind(on_release=self._on_sign_in)
         self.add_widget(sign_in)
- 
+
         self.add_widget(Divider())
- 
+
         signup_btn = SignUpButton(text='Create an account')
         signup_btn.bind(on_release=lambda *_: self.switch_cb('signup'))
         self.add_widget(signup_btn)
- 
+
         self.add_widget(Widget())
-    
+
     def _on_sign_in(self, *_):
         user = self.username.text.strip()
         pwd = self.password.text.strip()
@@ -456,37 +443,35 @@ class SignInPanel(BoxLayout):
         else:
             self._error.show("Incorrect username or password.")
 
+
 class SignUpPanel(BoxLayout):
     def __init__(self, switch_cb, success_cb, **kwargs):
-        super().__init__(orientation='vertical', spacing=dp(12),
-                         size_hint=(1, 1), **kwargs)
+        super().__init__(orientation='vertical', spacing=dp(10), size_hint=(1, 1), **kwargs)
         self.switch_cb = switch_cb
         self.success_cb = success_cb
-        self._selected_role = "Farmer" # default selected role
+        self._selected_role = "Farmer"
         self._build()
 
     def _build(self):
-        self.add_widget(make_label('Start monitoring your crops today',
-                                   font_size=24, color=DIM, height=dp(22)))
-        self.add_widget(Widget(size_hint=(1, None), height=dp(6)))
- 
-        self.add_widget(make_label('FULL NAME', font_size=20, color=DIM,
-                                   height=dp(18)))
+        self.add_widget(make_label('Create account', font_size=sp(24), color=NEUTRAL, bold=True, height=dp(30)))
+        self.add_widget(make_label('Start monitoring your crops today', font_size=sp(14), color=DIM, height=dp(22)))
+        self.add_widget(Widget(size_hint=(1, None), height=dp(8)))
+
+        self.add_widget(make_label('FULL NAME', font_size=sp(11), color=DIM, height=dp(16)))
         self.fullname = InputField(hint='e.g. John Farmer')
         self.add_widget(self.fullname)
- 
-        self.add_widget(make_label('USERNAME', font_size=20, color=DIM,
-                                   height=dp(18)))
+
+        self.add_widget(make_label('USERNAME', font_size=sp(11), color=DIM, height=dp(16)))
         self.username = InputField(hint='e.g. j.farmer')
         self.add_widget(self.username)
- 
-        self.add_widget(make_label('PASSWORD', font_size=20, color=DIM,
-                                   height=dp(18)))
+
+        self.add_widget(make_label('PASSWORD', font_size=sp(11), color=DIM, height=dp(16)))
         self.password = InputField(hint='Min. 8 characters', password=True)
         self.add_widget(self.password)
 
-        self.add_widget(make_label('I AM A', font_size=20, color=DIM, height=dp(18)))
-        role_row = BoxLayout(orientation='horizontal', spacing=dp(8), size_hint=(1, None), height=dp(40))
+        self.add_widget(make_label('I AM A', font_size=sp(11), color=DIM, height=dp(16)))
+        role_row = BoxLayout(orientation='horizontal', spacing=dp(8), size_hint=(1, None), height=dp(42))
+        
         self._farmer_btn = self._role_btn("Farmer")
         self._researcher_btn = self._role_btn("Researcher")
         role_row.add_widget(self._farmer_btn)
@@ -499,20 +484,24 @@ class SignUpPanel(BoxLayout):
 
         self.add_widget(Widget(size_hint=(1, None), height=dp(4)))
 
-        sign_in = SignInButton(text='Sign Up')
-        sign_in.bind(on_release=self._on_sign_up)
-        self.add_widget(sign_in)
+        sign_up = SignInButton(text='Sign Up')
+        sign_up.bind(on_release=self._on_sign_up)
+        self.add_widget(sign_up)
 
         self.add_widget(Divider())
 
         signup_btn = SignUpButton(text='Sign In Instead')
         signup_btn.bind(on_release=lambda *_: self.switch_cb('login'))
         self.add_widget(signup_btn)
- 
+
         self.add_widget(Widget())
-    
+
     def _role_btn(self, label):
-        btn = Button(text=label, font_size=sp(13), bold=True, size_hint=(1, 1), background_normal='', background_color=(0, 0, 0, 0))
+        btn = Button(
+            text=label, font_name=FONT_NAME, font_size=sp(12),
+            bold=True, size_hint=(1, 1), background_normal='',
+            background_color=(0, 0, 0, 0)
+        )
         btn.bind(on_release=lambda *_: self._set_role(label))
         btn.bind(pos=self._draw_role_btn, size=self._draw_role_btn)
         return btn
@@ -520,16 +509,19 @@ class SignUpPanel(BoxLayout):
     def _draw_role_btn(self, btn, *_):
         btn.canvas.before.clear()
         with btn.canvas.before:
-            if self._selected_role == btn.text:
-                Color(*ACCENT)
-                btn.color = NEUTRAL
+            r = float(RADIUS_SM)
+            selected = (self._selected_role == btn.text)
+            if selected:
+                Color(*with_alpha(ACCENT, 0.12))
+                btn.color = ACCENT
+                border = with_alpha(ACCENT, 0.35)
             else:
-                Color(*CARD_BG)
+                Color(*OVERLAY_SUBTLE)
                 btn.color = DIM
-            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
-            if self._selected_role != btn.text:
-                Color(*BORDER)
-                Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, dp(6)], width=1)
+                border = BORDER
+            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[r])
+            Color(*border)
+            Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, r], width=1.0)
 
     def _set_role(self, role):
         self._selected_role = role
@@ -545,7 +537,7 @@ class SignUpPanel(BoxLayout):
             self._error.show("All fields are required")
             return
         if len(pwd) < 8:
-            self._error.show("Password must be longer than 8 characters")
+            self._error.show("Password must be at least 8 characters")
             return
 
         success = sign_up_query(conn, cursor, name, user, pwd, name, self._selected_role)
@@ -554,8 +546,6 @@ class SignUpPanel(BoxLayout):
             self.success_cb(self._selected_role)
         else:
             self._error.show("Username is taken. Please choose another.")
-        
-
 
 class DataCard(Card):
     def __init__(self, title, value, unit, direction, delta, **kwargs):
@@ -1382,7 +1372,7 @@ class SignInScreen(Screen):
         card.bind(size = lambda w, s: setattr(inner, 'size', s),
                  pos = lambda w, p:setattr(inner, 'pos', p))
 
-        inner.add_widget(SignInHeader())
+        inner.add_widget(SignInPanel())
 
         self.panel_holder = BoxLayout(orientation='vertical', size_hint = (1,1))
         self.current_panel = None
