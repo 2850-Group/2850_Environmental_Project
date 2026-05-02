@@ -303,77 +303,65 @@ class InputField(BoxLayout):
 
 
 class SignInButton(Button):
-    """Blue sign in button"""
     def __init__(self, text="Sign In", **kwargs):
         super().__init__(
             text=text,
-            background_color=CARD_BG,
-            color=NEUTRAL,
+            font_name=FONT_NAME,
+            background_normal="",
+            background_down="",
+            background_color=(0, 0, 0, 0),
+            color=BG,
             bold=True,
-            font_size=30,
+            font_size=sp(14),
             size_hint=(1, None),
-            height=dp(48),
+            height=dp(50),
             **kwargs,
         )
-        self.bind(pos=self._draw, size=self._draw)
+        self.bind(pos=self._draw, size=self._draw, state=self._draw)
 
     def _draw(self, *_):
         self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r    = float(RADIUS_SM)
+        fill = shade(ACCENT, 0.82) if self.state == "down" else ACCENT
         with self.canvas.before:
-            Color(*CARD_BG)
-            RoundedRectangle(pos=self.pos, size=self.size,
-                             radius=[dp(8)])
-            Color(*BORDER)
-            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)],
-                 width=1.2)
-            
-    def on_press(self):
-        self.color = ACCENT2
-        with self.canvas.before:
-            Color(*CARD_BG)
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
-            Color(*ACCENT2)
-            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width = 1.5)
-    
-    def on_release(self):
-        self.color=DIM
-        self._draw()
+            Color(*fill)
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*with_alpha((0, 0, 0, 1), 0.12))
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
 
+# Secondary button
 class SignUpButton(Button):
     def __init__(self, text="Sign Up", **kwargs):
         super().__init__(
             text=text,
-            background_color=CARD_BG,
-            color=NEUTRAL,
+            font_name=FONT_NAME,
+            background_normal="",
+            background_down="",
+            background_color=(0, 0, 0, 0),
+            color=ACCENT,
             bold=True,
-            font_size=30,
+            font_size=sp(14),
             size_hint=(1, None),
-            height=dp(48),
+            height=dp(50),
             **kwargs,
         )
-        self.bind(pos=self._draw, size=self._draw)
+        self.bind(pos=self._draw, size=self._draw, state=self._draw)
 
     def _draw(self, *_):
         self.canvas.before.clear()
+        x, y   = self.pos
+        w, h   = self.size
+        r      = float(RADIUS_SM)
+        stroke = with_alpha(ACCENT, 0.60) if self.state == "down" else with_alpha(BORDER, 1.0)
+        self.color = ACCENT
         with self.canvas.before:
-            Color(*CARD_BG)
-            RoundedRectangle(pos=self.pos, size=self.size,
-                             radius=[dp(8)])
-            Color(*BORDER)
-            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)],
-                 width=1.2)
-            
-    def on_press(self):
-        self.color = ACCENT2
-        with self.canvas.before:
-            Color(*CARD_BG)
-            RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(8)])
-            Color(*ACCENT2)
-            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width = 1.5)
+            Color(*with_alpha(ACCENT, 0.08) if self.state == "down" else with_alpha(CARD_BG, 0.0))
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*stroke)
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
 
-    def on_release(self):
-        self.color=DIM
-        self._draw()
 
 class Divider(BoxLayout):
     """Line divided sign in and sign up buttons"""  
