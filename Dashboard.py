@@ -265,15 +265,18 @@ class Input(TextInput):
         )
 
 class InputField(BoxLayout):
-    """Wrapper that draws the rounded border around an Input."""
-    def __init__(self, hint='', password=False, font_size='18sp', **kwargs):
+    def __init__(self, hint='', password=False, font_size=sp(13), **kwargs):
         kwargs.setdefault('size_hint_y', None)
-        kwargs.setdefault('height', dp(44))
+        kwargs.setdefault('height', dp(46))
         super().__init__(**kwargs)
 
-        self._input = Input(hint=hint, password=password, font_size = font_size)
+        self._input = Input(hint=hint, password=password, font_size=font_size)
         self._input.bind(focus=self._on_focus)
         self.add_widget(self._input)
+
+        with self.canvas.before:
+            Color(*INPUT_BG)
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[RADIUS_SM])
 
         self._border_group = InstructionGroup()
         self.canvas.after.add(self._border_group)
@@ -281,12 +284,13 @@ class InputField(BoxLayout):
         Clock.schedule_once(lambda dt: self._redraw())
 
     def _redraw(self, *_):
+        if hasattr(self, "_bg"):
+            self._bg.pos  = self.pos
+            self._bg.size = self.size
         self._border_group.clear()
+        self._border_group.add(Color(*(ACCENT if self._input.focus else BORDER)))
         self._border_group.add(
-            Color(*(ACCENT if self._input.focus else BORDER))
-        )
-        self._border_group.add(
-            Line(rounded_rectangle=[*self.pos, *self.size, dp(8)], width=1.2)
+            Line(rounded_rectangle=[*self.pos, *self.size, float(RADIUS_SM)], width=1.0)
         )
 
     def _on_focus(self, inst, focused):
