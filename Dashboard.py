@@ -6,7 +6,6 @@ pip install opencv-python
 pip install kivymd
 '''
 
-
 from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.uix.gridlayout import GridLayout
@@ -17,8 +16,12 @@ from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.graphics import (
     Color, Rectangle, RoundedRectangle, Line, Ellipse,
-    Canvas, Triangle, InstructionGroup
+    Triangle, InstructionGroup
 )
+try:
+    from kivy.graphics.boxshadow import BoxShadow
+except Exception:
+    BoxShadow = None
 from kivy.uix.camera import Camera
 from kivy.metrics import dp, sp
 from kivy.clock import Clock
@@ -27,63 +30,98 @@ from kivy.properties import (
 )
 from kivy.uix.textinput import TextInput
 from kivy.core.window import Window
+from kivy.core.text import LabelBase
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.relativelayout import RelativeLayout
 from kivy.animation import Animation
-from Code.Database.Queries.sign_in import sign_in_query
-from Code.Database.Queries.sign_in import sign_up_query
-import sqlite3
-import bcrypt
-import sys
-import os
+from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
+import os, sqlite3, sys
+
+# Fonts
+FONT_NAME = "Roboto"
+try:
+    for _fp in (
+        "/System/Library/Fonts/SFNSMono.ttf",
+        "/System/Library/Fonts/Menlo.ttc",
+    ):
+        if os.path.exists(_fp):
+            LabelBase.register(name="AppMono", fn_regular=_fp)
+            FONT_NAME = "AppMono"
+            break
+except Exception:
+    FONT_NAME = "Roboto"
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
 from Code.bridge import Bridge
 from datetime import datetime
-import random
-import math
 from kivymd.uix.label import MDIcon
 from kivy.uix.behaviors import ButtonBehavior
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db")
-os.environ['KIVY_CAMERA'] = 'opencv'
+os.environ["KIVY_CAMERA"] = "opencv"
 
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
-#Colour Palette
-BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg 
-CARD_BG    = (0.11, 0.13, 0.18, 1)      # card bg
-SURFACE2   = (0.15, 0.18, 0.24, 1)      # slightly lighter surface
-ACCENT     = (0.22, 0.60, 0.95, 1)      # blue accent
-ACCENT2    = (0.15, 0.82, 0.68, 1)      # teal
-UP_CLR     = (0.20, 0.85, 0.50, 1)      # green = rising
-DOWN_CLR   = (1.00, 0.55, 0.55, 1)      # red = falling
-NEUTRAL    = (0.95, 0.95, 0.95, 1)      # neutral text
-DIM        = (0.66, 0.70, 0.76, 1)      # secondary text
-BAR_BG     = (0.08, 0.10, 0.14, 1)      # bottom bar bg
-BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
-ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
-ALERT_CRIT = (1.00, 0.50, 0.50, 1)      # red critical
+# Theme
+APP_NAME = "Environmental Dashboard"
 
-# Screen order direcetion
+BG       = (0.039, 0.039, 0.039, 1)
+SURFACE  = (0.078, 0.078, 0.078, 1)
+INPUT_BG = (0.102, 0.102, 0.102, 1)
+
+CARD_BG = SURFACE
+BAR_BG  = SURFACE
+BORDER  = (0.165, 0.165, 0.165, 1)
+
+ACCENT     = (0.267, 1.000, 0.533, 1)
+ACCENT2    = (0.231, 0.510, 0.965, 1)
+UP_CLR     = ACCENT
+DOWN_CLR   = (1.000, 0.267, 0.267, 1)
+ALERT_WARN = (1.000, 0.667, 0.000, 1)
+ALERT_CRIT = DOWN_CLR
+
+NEUTRAL = (0.910, 0.910, 0.910, 1)
+DIM     = (0.533, 0.533, 0.533, 1)
+
+OVERLAY_SUBTLE = (1, 1, 1, 0.03)
+OVERLAY_LIGHT  = (1, 1, 1, 0.05)
+
+RADIUS_SM  = dp(6)
+RADIUS_MD  = dp(10)
+RADIUS_LG  = dp(14)
+ELEV_Y     = dp(1)
+SHADOW_CLR = (0, 0, 0, 0.50)
+
+# Prevents white flash on startup
+Window.clearcolor = BG
+
+# Screen slide direction order
 SCREEN_ORDER = ["dashboard", "scan", "profile"]
 
-def rgba(color):
-    return color
+# Helpers
 
-def  make_label(text, font_size=18, color = NEUTRAL, bold = False, halign='left', height = dp(24)):
-    label = Label(
-        text = text,
-        font_size = font_size,
-        color = color,
-        bold = bold,
-        halign = halign, 
-        valign = "middle",
-        size_hint_y = None,
-        height = height
-    )
-    label.bind(size=lambda inst, val: setattr(inst, 'text_size', (val[0], None)))
-    return label
+def with_alpha(color, a):
+    r, g, b, _ = color
+    return (r, g, b, a)
+
+def shade(color, factor):
+    r, g, b, a = color
+    return (min(1.0, r * factor), min(1.0, g * factor), min(1.0, b * factor), a)
+
+def make_label(text, font_size=sp(12), color=NEUTRAL, bold=False, halign="left", height=dp(24), **kwargs):
+    kwargs.setdefault("text", text)
+    kwargs.setdefault("font_name", FONT_NAME)
+    kwargs.setdefault("font_size", font_size)
+    kwargs.setdefault("color", color)
+    kwargs.setdefault("bold", bold)
+    kwargs.setdefault("halign", halign)
+    kwargs.setdefault("valign", "middle")
+    if "size_hint" not in kwargs and "size_hint_y" not in kwargs:
+        kwargs.setdefault("size_hint_y", None)
+    kwargs.setdefault("height", height)
+    lbl = Label(**kwargs)
+    lbl.bind(size=lambda w, s: setattr(w, "text_size", (s[0], None)))
+    return lbl
 
 class Card(BoxLayout):
     bg_color = ListProperty(list(CARD_BG))
@@ -186,7 +224,7 @@ class Input(TextInput):
             multiline=False,
             background_normal="",
             background_active="",
-            background_color=SURFACE2,
+            background_color=SURFACE,
             foreground_color=NEUTRAL,
             hint_text_color=DIM,
             cursor_color=ACCENT,
@@ -727,7 +765,7 @@ class AlertsPanel(BoxLayout):
         header = BoxLayout(size_hint_y=None, height=dp(44),
                            padding=[dp(14), 0])
         with header.canvas.before:
-            Color(*SURFACE2)
+            Color(*SURFACE)
             self._hdr_rect = RoundedRectangle(pos=header.pos, size=header.size)
         header.bind(pos=self._upd_hdr, size=self._upd_hdr)
 
@@ -1150,7 +1188,7 @@ class SiteSelectorBar(BoxLayout):
         self._btns = {}
 
         with self.canvas.before:
-            Color(*SURFACE2)
+            Color(*SURFACE)
             self._bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=self._upd, size=self._upd)
 
@@ -1588,7 +1626,7 @@ class DashboardHeader(BoxLayout):
 
         # 2. SETUP CANVAS
         with self.canvas.before:
-            Color(*SURFACE2)
+            Color(*SURFACE)
             self._bg = Rectangle(pos=self.pos, size=self.size)
         self.bind(pos=self._upd, size=self._upd)
 
