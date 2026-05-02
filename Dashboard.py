@@ -842,28 +842,11 @@ class AlertsPanel(BoxLayout):
         for alert in self._alerts:
             self._rows_box.add_widget(AlertRow(alert))
 
+# Full-screen modal graph
 class GraphOverlay(FloatLayout):
-    """
-    Full-screen modal overlay that draws a line graph from historical data.
-
-    Usage:
-        overlay = GraphOverlay(
-            title     = "Temperature",
-            unit      = "°C",
-            site      = "Maize",
-            timestamps = [...],   # list of date strings
-            values     = [...],   # list of floats
-        )
-        MDApp.get_running_app().root.add_widget(overlay)
-
-    Tapping the × button or outside the panel removes it.
-    """
-
-    # Rolling average window (number of data points)
     AVG_WINDOW = 20
 
     def __init__(self, title, unit, site, timestamps, values, **kwargs):
-        # FloatLayout added to Window needs explicit size — size_hint doesn't work there
         kwargs.setdefault("size", Window.size)
         kwargs.setdefault("pos", (0, 0))
         super().__init__(**kwargs)
@@ -874,22 +857,24 @@ class GraphOverlay(FloatLayout):
         self._timestamps = timestamps
         self._values     = values
 
-        # Keep sized to window if it resizes
-        Window.bind(size=lambda _, s: setattr(self, 'size', s))
+        self._win_size_cb = lambda _, s: setattr(self, "size", s)
+        Window.bind(size=self._win_size_cb)
 
-        # ── dark scrim ────────────────────────────────────────────────
+        # Background scrim
         scrim = Widget(size=self.size, pos=self.pos)
         with scrim.canvas:
             Color(0, 0, 0, 0.72)
             self._scrim_rect = Rectangle(pos=scrim.pos, size=scrim.size)
-        self.bind(pos =lambda _, v: (setattr(scrim, 'pos',  v), setattr(self._scrim_rect, 'pos',  v)),
-                  size=lambda _, v: (setattr(scrim, 'size', v), setattr(self._scrim_rect, 'size', v)))
+        self.bind(
+            pos=lambda  _, v: (setattr(scrim, 'pos',  v), setattr(self._scrim_rect, 'pos',  v)),
+            size=lambda _, v: (setattr(scrim, 'size', v), setattr(self._scrim_rect, 'size', v)),
+        )
         scrim.bind(on_touch_down=self._scrim_touch)
         self.add_widget(scrim)
 
-        # ── panel card ────────────────────────────────────────────────
-        pw = Window.width  * 0.94
-        ph = Window.height * 0.72
+        # Panel
+        pw = min(Window.width * 0.94, dp(820))
+        ph = min(Window.height * 0.72, dp(560))
         panel = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
@@ -898,21 +883,40 @@ class GraphOverlay(FloatLayout):
             padding=[dp(14), dp(12)],
             spacing=dp(8),
         )
+        self._panel = panel
         with panel.canvas.before:
+            r = float(RADIUS_LG)
+            Color(*SHADOW_CLR)
+            if BoxShadow is not None:
+                self._panel_shadow = BoxShadow(
+                    pos=panel.pos, size=panel.size,
+                    offset=(0, -dp(12)),
+                    blur_radius=dp(32),
+                    spread_radius=(-dp(14), -dp(14)),
+                    border_radius=(r, r, r, r),
+                )
+            else:
+                self._panel_shadow = RoundedRectangle(
+                    pos=(panel.x, panel.y - ELEV_Y),
+                    size=(panel.width, panel.height + ELEV_Y),
+                    radius=[r],
+                )
             Color(*CARD_BG)
-            self._panel_rect = RoundedRectangle(
-                pos=panel.pos, size=panel.size, radius=[dp(16)])
+            self._panel_rect   = RoundedRectangle(pos=panel.pos, size=panel.size, radius=[r])
+            Color(*BORDER)
+            self._panel_border = Line(rounded_rectangle=[panel.x, panel.y, panel.width, panel.height, r], width=1.0)
         panel.bind(pos=self._upd_panel, size=self._upd_panel)
 
-        # header row: title + close button
+        # Header row
         hdr = BoxLayout(size_hint_y=None, height=dp(36))
-        hdr.add_widget(Label(
-            text=f"{title}  ·  {site.capitalize()}",
-            font_size=sp(14), color=NEUTRAL, bold=True,
-            halign="left", valign="middle",
-        ))
+        hdr.add_widget(make_label(f"{title.upper()}  /  {site.upper()}",
+                                  font_size=sp(12), color=NEUTRAL, bold=True, halign="left",
+                                  shorten=True, shorten_from="right", size_hint=(1, 1)))
         close_btn = Button(
-            text="✕", font_size=sp(15), color=DIM,
+            text="X",
+            font_name=FONT_NAME,
+            font_size=sp(14),
+            color=DIM,
             size_hint=(None, None), size=(dp(32), dp(32)),
             background_normal="", background_color=(0, 0, 0, 0),
         )
@@ -920,23 +924,16 @@ class GraphOverlay(FloatLayout):
         hdr.add_widget(close_btn)
         panel.add_widget(hdr)
 
-        # unit / range label
-        self._info_lbl = Label(
-            text="Loading…", font_size=sp(10), color=DIM,
-            halign="left", valign="middle",
-            size_hint_y=None, height=dp(18),
-        )
-        self._info_lbl.bind(size=lambda w, s: setattr(w, 'text_size', s))
+        self._info_lbl = make_label("Loading...", font_size=sp(10), color=DIM, halign="left", height=dp(18))
         panel.add_widget(self._info_lbl)
 
-        # graph canvas widget
+        # Graph canvas
         self._graph = Widget(size_hint=(1, 1))
         self._graph.bind(pos=self._draw_graph, size=self._draw_graph)
         panel.add_widget(self._graph)
 
-        # legend row
-        legend = BoxLayout(size_hint_y=None, height=dp(20), spacing=dp(16),
-                           padding=[dp(4), 0])
+        # Legend
+        legend = BoxLayout(size_hint_y=None, height=dp(20), spacing=dp(16), padding=[dp(4), 0])
         for clr, lbl_text in [(ACCENT, "Value"), (ACCENT2, f"{self.AVG_WINDOW}-pt avg")]:
             dot = Widget(size_hint=(None, 1), width=dp(12))
             with dot.canvas:
@@ -944,24 +941,23 @@ class GraphOverlay(FloatLayout):
                 Ellipse(pos=(0, 0), size=(dp(8), dp(8)))
             dot.bind(pos=lambda w, p, c=clr: self._redraw_dot(w, p, c))
             legend.add_widget(dot)
-            legend.add_widget(Label(
-                text=lbl_text, font_size=sp(9), color=DIM,
-                halign="left", size_hint_x=None, width=dp(70),
-            ))
-        legend.add_widget(Widget())   # spacer
+            legend.add_widget(make_label(lbl_text, font_size=sp(9), color=DIM, halign="left",
+                                         size_hint=(None, 1), width=dp(70)))
+        legend.add_widget(Widget())
         panel.add_widget(legend)
-
         self.add_widget(panel)
 
-        # draw after two frames to ensure BoxLayout has distributed sizes
+        # Draw after layout settles
         Clock.schedule_once(self._draw_graph, 0.1)
-        Clock.schedule_once(self._draw_graph, 0.3)
-
-    # ── helpers ──────────────────────────────────────────────────────
 
     def _upd_panel(self, w, *_):
         self._panel_rect.pos  = w.pos
         self._panel_rect.size = w.size
+        if hasattr(self, "_panel_shadow"):
+            self._panel_shadow.pos  = w.pos  if BoxShadow is not None else (w.x, w.y - ELEV_Y)
+            self._panel_shadow.size = w.size if BoxShadow is not None else (w.width, w.height + ELEV_Y)
+        if hasattr(self, "_panel_border"):
+            self._panel_border.rounded_rectangle = [w.x, w.y, w.width, w.height, float(RADIUS_LG)]
 
     def _redraw_dot(self, w, pos, clr):
         w.canvas.clear()
@@ -969,15 +965,17 @@ class GraphOverlay(FloatLayout):
             Color(*clr)
             Ellipse(pos=(pos[0], pos[1] + dp(2)), size=(dp(8), dp(8)))
 
+    # Dismiss when tapping outside the panel
     def _scrim_touch(self, widget, touch):
-        # dismiss if user taps the dark background (not the panel)
+        if getattr(self, "_panel", None) and self._panel.collide_point(*touch.pos):
+            return False
         self._dismiss()
         return True
 
     def _dismiss(self):
+        if hasattr(self, "_win_size_cb"):
+            Window.unbind(size=self._win_size_cb)
         Window.remove_widget(self)
-
-    # ── rolling average ──────────────────────────────────────────────
 
     @staticmethod
     def _rolling_avg(values, window):
@@ -988,13 +986,9 @@ class GraphOverlay(FloatLayout):
             out.append(sum(chunk) / len(chunk))
         return out
 
-    # ── graph drawing ────────────────────────────────────────────────
-
     def _draw_graph(self, *_):
         w = self._graph
         w.canvas.clear()
-
-        # remove any old axis label widgets
         for child in list(w.children):
             w.remove_widget(child)
 
@@ -1008,7 +1002,6 @@ class GraphOverlay(FloatLayout):
         v_max   = max(values)
         v_range = v_max - v_min if v_max != v_min else 1.0
 
-        # update info label regardless of size
         self._info_lbl.text = (
             f"{self._unit}  ·  min {v_min:.1f}  max {v_max:.1f}  ({len(values)} pts)"
         )
@@ -1016,7 +1009,7 @@ class GraphOverlay(FloatLayout):
         if len(values) < 2:
             return
 
-        # ── margins ──────────────────────────────────────────────────
+        # Layout margins
         ml = dp(48)
         mr = dp(10)
         mt = dp(10)
@@ -1030,16 +1023,7 @@ class GraphOverlay(FloatLayout):
         if gw <= 0 or gh <= 0:
             return
 
-        # ── value range ──────────────────────────────────────────────
-        v_min = min(values)
-        v_max = max(values)
-        v_range = v_max - v_min if v_max != v_min else 1.0
-
-        # update info label
-        self._info_lbl.text = (
-            f"{self._unit}  ·  min {v_min:.1f}  max {v_max:.1f}  "
-            f"({len(values)} pts)"
-        )
+        avg_values = self._rolling_avg(values, self.AVG_WINDOW)
 
         def to_px(v):
             return gy + ((v - v_min) / v_range) * gh
@@ -1047,53 +1031,36 @@ class GraphOverlay(FloatLayout):
         def to_x(i):
             return gx + (i / (len(values) - 1)) * gw
 
-        # ── rolling average ──────────────────────────────────────────
-        avg_values = self._rolling_avg(values, self.AVG_WINDOW)
-
         with w.canvas:
-
-            # grid lines + Y labels (5 horizontal gridlines)
+            # Grid lines
             N_GRID = 5
             for k in range(N_GRID + 1):
-                frac  = k / N_GRID
-                y_val = v_min + frac * v_range
-                py    = gy + frac * gh
-
-                # gridline
+                py = gy + (k / N_GRID) * gh
                 Color(*BORDER)
                 Line(points=[gx, py, gx + gw, py], width=dp(0.6))
-
-                # Y label
-                Color(*DIM)
-                # We can't use Label in canvas so we'll skip text on canvas;
-                # labels are placed via scheduled Label widgets below
 
             # X-axis baseline
             Color(*BORDER)
             Line(points=[gx, gy, gx + gw, gy], width=dp(0.8))
 
-            # ── main value line ──────────────────────────────────────
+            # Value line
             Color(*ACCENT)
             pts = []
             for i, v in enumerate(values):
                 pts += [to_x(i), to_px(v)]
             Line(points=pts, width=dp(1.2))
 
-            # ── rolling average line ─────────────────────────────────
+            # Average line
             Color(*ACCENT2)
             avg_pts = []
             for i, v in enumerate(avg_values):
                 avg_pts += [to_x(i), to_px(v)]
             Line(points=avg_pts, width=dp(1.5))
 
-            # ── endpoint dot ─────────────────────────────────────────
-            last_x = to_x(len(values) - 1)
-            last_y = to_px(values[-1])
+            # Endpoint dot
             Color(*ACCENT)
-            Ellipse(pos=(last_x - dp(4), last_y - dp(4)),
+            Ellipse(pos=(to_x(len(values) - 1) - dp(4), to_px(values[-1]) - dp(4)),
                     size=(dp(8), dp(8)))
-
-        # ── axis labels (via Label widgets added to graph widget) ────
 
         # Y labels
         N_GRID = 5
@@ -1101,8 +1068,9 @@ class GraphOverlay(FloatLayout):
             frac  = k / N_GRID
             y_val = v_min + frac * v_range
             py    = gy + frac * gh
-            lbl = Label(
+            lbl   = Label(
                 text=f"{y_val:.1f}",
+                font_name=FONT_NAME,
                 font_size=sp(8), color=DIM,
                 size_hint=(None, None), size=(dp(42), dp(14)),
                 halign="right", valign="middle",
@@ -1111,18 +1079,16 @@ class GraphOverlay(FloatLayout):
             lbl.pos = (w.x + ml - dp(46), py - dp(7))
             w.add_widget(lbl)
 
-        # X labels — show ~5 evenly-spaced date labels
-        n = len(timestamps)
+        # X labels
+        n         = len(timestamps)
         x_indices = [int(i * (n - 1) / 4) for i in range(5)]
         for idx in x_indices:
-            px = to_x(idx)
-            # show Mon-YY format
-            ts  = timestamps[idx]
-            # ts is YYYY-MM-DD; show MM-YY
-            parts = ts.split("-")
-            short = f"{parts[1]}/{parts[0][2:]}" if len(parts) == 3 else ts
-            lbl = Label(
+            px    = to_x(idx)
+            parts = timestamps[idx].split("-")
+            short = f"{parts[1]}/{parts[0][2:]}" if len(parts) == 3 else timestamps[idx]
+            lbl   = Label(
                 text=short,
+                font_name=FONT_NAME,
                 font_size=sp(7), color=DIM,
                 size_hint=(None, None), size=(dp(36), dp(14)),
                 halign="center", valign="top",
@@ -1130,9 +1096,6 @@ class GraphOverlay(FloatLayout):
             lbl.text_size = lbl.size
             lbl.pos = (px - dp(18), w.y + dp(2))
             w.add_widget(lbl)
-
-
-from kivy.uix.behaviors import ButtonBehavior
 
 # Create a custom class that acts like a button but looks like a BoxLayout
 class SiteButton(ButtonBehavior, BoxLayout):
