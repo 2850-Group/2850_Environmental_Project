@@ -636,28 +636,27 @@ class DataCard(Card):
             return True
         return super().on_touch_up(touch)
 
-#Alert Panel
-
+# Alerts
 SAMPLE_ALERTS = [
     {"level": "critical", "title": "Plant dying",
      "summary": "Water at 97%",
      "detail": "The plant is definitely dying"},
     {"level": "warning",  "title": "Pressure",
      "summary": "Water pressure crashing",
-     "detail": "Tidal waves incoming"}
+     "detail": "Tidal waves incoming"},
 ]
 
 class AlertRow(BoxLayout):
     expanded = BooleanProperty(False)
 
-    COLLAPSED_H = dp(52)
-    EXPANDED_H  = dp(110)
+    COLLAPSED_H = dp(48)
+    EXPANDED_H  = dp(106)
 
     def __init__(self, alert, **kwargs):
         kwargs.setdefault("orientation", "vertical")
         kwargs.setdefault("size_hint_y", None)
         super().__init__(**kwargs)
-        self.alert = alert
+        self.alert  = alert
         self.height = self.COLLAPSED_H
 
         clr = ALERT_CRIT if alert["level"] == "critical" else ALERT_WARN
@@ -666,8 +665,7 @@ class AlertRow(BoxLayout):
         row = BoxLayout(size_hint_y=None, height=self.COLLAPSED_H,
                         padding=[dp(12), 0], spacing=dp(10))
 
-        # Colour dot
-        dot_wrap = BoxLayout(size_hint=(None, None), size=(dp(20), dp(52)))
+        dot_wrap = BoxLayout(size_hint=(None, None), size=(dp(20), dp(48)))
         dot = Widget(size_hint=(None, None), size=(dp(10), dp(10)),
                      pos_hint={"center_x": 0.5, "center_y": 0.5})
         with dot.canvas:
@@ -678,32 +676,24 @@ class AlertRow(BoxLayout):
         row.add_widget(dot_wrap)
 
         text_col = BoxLayout(orientation="vertical", spacing=dp(2))
-        text_col.add_widget(Label(
-            text=alert["title"], font_size=sp(12),
-            color=NEUTRAL, bold=True, halign="left",
-            text_size=(None, None)
-        ))
-        text_col.add_widget(Label(
-            text=alert["summary"], font_size=sp(10),
-            color=DIM, halign="left", text_size=(None, None)
-        ))
+        title_lbl = make_label(alert["title"], font_size=sp(12), color=NEUTRAL, bold=True,
+                               height=dp(18), shorten=True, shorten_from="right")
+        summary_lbl = make_label(alert["summary"], font_size=sp(10), color=DIM,
+                                 height=dp(16), shorten=True, shorten_from="right")
+        text_col.add_widget(title_lbl)
+        text_col.add_widget(summary_lbl)
         row.add_widget(text_col)
 
-        self._chevron = Label(text="›", font_size=sp(20),
-                              color=DIM, size_hint_x=None,
-                              width=dp(24))
+        self._chevron = make_label("›", font_size=sp(18), color=DIM,
+                                   halign="center", size_hint=(None, 1), width=dp(24))
         row.add_widget(self._chevron)
         row.bind(on_touch_down=self._on_touch)
         self.add_widget(row)
 
         # Detail section
-        self._detail = Label(
-            text=alert["detail"], font_size=sp(11),
-            color=DIM, halign="left", valign="top",
-            text_size=(None, None),
-            size_hint_y=None, height=0, opacity=0,
-            padding=(dp(12), dp(4))
-        )
+        self._detail = make_label(alert["detail"], font_size=sp(11), color=DIM, halign="left",
+                                  valign="top", size_hint_y=None, height=0, opacity=0,
+                                  padding=(dp(12), dp(4)))
         self.add_widget(self._detail)
 
         # Bottom separator
@@ -726,20 +716,16 @@ class AlertRow(BoxLayout):
             return True
 
     def toggle(self):
-        self.expanded = not self.expanded
-        target_h = self.EXPANDED_H if self.expanded else self.COLLAPSED_H
-        detail_h = (self.EXPANDED_H - self.COLLAPSED_H - dp(1)) \
-                   if self.expanded else 0
+        self.expanded  = not self.expanded
+        target_h       = self.EXPANDED_H if self.expanded else self.COLLAPSED_H
+        detail_h       = (self.EXPANDED_H - self.COLLAPSED_H - dp(1)) if self.expanded else 0
         self._chevron.text = "▾" if self.expanded else "›"
-        
+
         anim = Animation(height=target_h, duration=0.22, t="out_cubic")
-        # Add an on_complete to refresh layout AFTER the animation finishes
         anim.bind(on_progress=lambda *args: self._refresh_parent())
         anim.start(self)
-        
-        anim2 = Animation(height=detail_h, opacity=int(self.expanded),
-                          duration=0.22, t="out_cubic")
-        anim2.start(self._detail)
+        Animation(height=detail_h, opacity=int(self.expanded),
+                  duration=0.22, t="out_cubic").start(self._detail)
 
     def _refresh_parent(self):
         if self.parent:
@@ -748,44 +734,64 @@ class AlertRow(BoxLayout):
 
 class AlertsPanel(BoxLayout):
     expanded = BooleanProperty(True)
+    HEADER_H = dp(36)
 
     def __init__(self, **kwargs):
         kwargs.setdefault("orientation", "vertical")
         kwargs.setdefault("size_hint_y", None)
         super().__init__(**kwargs)
 
-        # Header
-        header = BoxLayout(size_hint_y=None, height=dp(44),
-                           padding=[dp(14), 0])
-        with header.canvas.before:
-            Color(*SURFACE)
-            self._hdr_rect = RoundedRectangle(pos=header.pos, size=header.size)
-        header.bind(pos=self._upd_hdr, size=self._upd_hdr)
-
-        self._badge = Label(
-            text=f"  {len(SAMPLE_ALERTS)} Alerts",
-            font_size=sp(13), color=NEUTRAL, bold=True,
-            halign="left", size_hint_x=0.65
-        )
-        header.add_widget(self._badge)
-        self.add_widget(header)
+        self._alerts = list(SAMPLE_ALERTS)
 
         with self.canvas.before:
             Color(*CARD_BG)
-            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(12)])
+            self._bg = RoundedRectangle(pos=self.pos, size=self.size, radius=[RADIUS_MD])
+            Color(*BORDER)
+            self._border = Line(rounded_rectangle=[*self.pos, *self.size, float(RADIUS_MD)], width=1.0)
         self.bind(pos=self._upd_bg, size=self._upd_bg)
 
-        # Alert rows
-        self._rows_box = BoxLayout(orientation="vertical",
-                                   size_hint_y=None)
+        # Header
+        header = BoxLayout(
+            size_hint_y=None,
+            height=self.HEADER_H,
+            padding=[dp(14), 0, dp(12), 0],
+            spacing=dp(8),
+        )
+        with header.canvas.before:
+            Color(*SURFACE)
+            self._hdr_rect = RoundedRectangle(
+                pos=header.pos, size=header.size,
+                radius=[RADIUS_MD, RADIUS_MD, 0, 0],
+            )
+        header.bind(pos=self._upd_hdr, size=self._upd_hdr)
+        header.bind(on_touch_down=self._on_header_touch)
+
+        header.add_widget(make_label("ALERTS", font_size=sp(11), color=NEUTRAL, bold=True, halign="left", size_hint=(None, 1), width=dp(72)))
+
+        badge_pill = BoxLayout(size_hint=(None, None), size=(dp(78), dp(20)), padding=[dp(10), 0])
+        with badge_pill.canvas.before:
+            Color(*with_alpha((1, 1, 1, 1), 0.03))
+            badge_pill._bg = RoundedRectangle(pos=badge_pill.pos, size=badge_pill.size, radius=[RADIUS_SM])
+            Color(*with_alpha(BORDER, 1.0))
+            badge_pill._bd = Line(rounded_rectangle=[*badge_pill.pos, *badge_pill.size, float(RADIUS_SM)], width=1.0)
+        badge_pill.bind(
+            pos=lambda w, p: (setattr(w._bg, "pos", p), setattr(w._bd, "rounded_rectangle", [p[0], p[1], w.width, w.height, float(RADIUS_SM)])),
+            size=lambda w, s: (setattr(w._bg, "size", s), setattr(w._bd, "rounded_rectangle", [w.x, w.y, s[0], s[1], float(RADIUS_SM)])),
+        )
+
+        self._badge = make_label(self._badge_text(), font_size=sp(10), color=DIM, bold=True, halign="center", size_hint=(1, 1))
+        badge_pill.add_widget(self._badge)
+        header.add_widget(badge_pill)
+        header.add_widget(Widget())
+
+        self._chev = make_label("▾", font_size=sp(18), color=DIM, halign="right", size_hint=(None, 1), width=dp(24))
+        header.add_widget(self._chev)
+        self.add_widget(header)
+
+        self._rows_box = BoxLayout(orientation="vertical", size_hint_y=None)
         self._rows_box.bind(minimum_height=self._rows_box.setter('height'))
-        self._alert_rows = []
-        for alert in SAMPLE_ALERTS:
-            row = AlertRow(alert)
-            self._alert_rows.append(row)
-            self._rows_box.add_widget(row)
         self.add_widget(self._rows_box)
-        self._update_height()
+        self.update_alerts(self._alerts)
         self._rows_box.bind(height=lambda *_: self._update_height())
 
     def _upd_hdr(self, w, *_):
@@ -795,44 +801,46 @@ class AlertsPanel(BoxLayout):
     def _upd_bg(self, w, *_):
         self._bg.pos  = w.pos
         self._bg.size = w.size
+        self._border.rounded_rectangle = [w.x, w.y, w.width, w.height, float(RADIUS_MD)]
 
-    def _on_touch(self, widget, touch):
+    def _badge_text(self):
+        n = len(self._alerts)
+        return f"{n} alert" if n == 1 else f"{n} alerts"
+
+    def _on_header_touch(self, widget, touch):
         if widget.collide_point(*touch.pos):
             self.toggle()
             return True
 
     def _update_height(self, *args):
-        # Only include the header height (44) + the actual height of the rows
-        self.height = dp(44) + self._rows_box.height
+        rows_h = self._rows_box.height if self.expanded else 0
+        self.height = self.HEADER_H + rows_h
         if self.parent:
             self.parent.do_layout()
 
-    # DELETE the toggle() function entirely so it can't be accidentally triggered
-
     def toggle(self):
         self.expanded = not self.expanded
-        self._toggle_lbl.text = "Collapse ▲" if self.expanded else "Expand ▼"
-        if self.expanded:
-            self._rows_box.opacity = 1
-            self._update_height()
-        else:
-            self._rows_box.opacity = 0
-            self.height = dp(44)
-        
-        # FIX: Force the scrollview body to recalculate positions
+        self._chev.text = "▾" if self.expanded else "▸"
+        # Detach rows so layout shrinks when collapsed
+        if self.expanded and not self._rows_box.children:
+            self._render_rows()
+        elif not self.expanded and self._rows_box.children:
+            self._rows_box.clear_widgets()
+        self._update_height()
         if self.parent:
             self.parent.do_layout()
 
     def update_alerts(self, alert_dicts):
-        self._rows_box.clear_widgets()
-        self._alert_rows = []
-        for alert in alert_dicts:
-            row = AlertRow(alert)
-            self._alert_rows.append(row)
-            self._rows_box.add_widget(row)
-        self._badge.text = f"  {len(alert_dicts)} Alerts"
+        self._alerts = list(alert_dicts)
+        self._badge.text = self._badge_text()
+        if self.expanded:
+            self._render_rows()
         self._update_height()
 
+    def _render_rows(self):
+        self._rows_box.clear_widgets()
+        for alert in self._alerts:
+            self._rows_box.add_widget(AlertRow(alert))
 
 class GraphOverlay(FloatLayout):
     """
@@ -1329,34 +1337,32 @@ def make_bg(widget):
 class SignInScreen(Screen):
     def __init__(self, on_authenticated, **kwargs):
         super().__init__(**kwargs)
+        make_bg(self)
         self._on_authenticated = on_authenticated
         root = FloatLayout()
 
-        with root.canvas.before:
-            Color(*BG)
-            self._bg_rect = RoundedRectangle(pos = root.pos, size = root.size)
+        card = RoundedCard(size_hint=(None, None), pos_hint={"center_x": 0.5, "center_y": 0.5})
 
-        root.bind(pos=lambda w, v: setattr(self._bg_rect, 'pos', v),
-                  size=lambda w, v: setattr(self._bg_rect, 'size', v))
-    
-        card = RoundedCard(
-            size = (0.9, 0.85),
-            pos_hint = {"center_x": 0.5, "center_y": 0.5}
-        )
+        def _resize_card(*_):
+            # Keeps auth card readable at any window size
+            w, h = Window.size
+            cw   = min(dp(520), w - dp(64))
+            ch   = min(dp(740), h - dp(80))
+            card.size = (max(dp(320), cw), max(dp(500), ch))
+
+        Window.bind(size=lambda *_: _resize_card())
+        Clock.schedule_once(lambda *_: _resize_card())
 
         inner = BoxLayout(
             orientation='vertical',
-            padding=[dp(28), dp(28)],
+            padding=[dp(28), dp(24)],
             spacing=dp(8),
-            size_hint = (1,1),
+            size_hint=(1, 1),
         )
+        card.bind(size=lambda w, s: setattr(inner, 'size', s),
+                  pos=lambda w, p: setattr(inner, 'pos', p))
 
-        card.bind(size = lambda w, s: setattr(inner, 'size', s),
-                 pos = lambda w, p:setattr(inner, 'pos', p))
-
-        inner.add_widget(SignInPanel())
-
-        self.panel_holder = BoxLayout(orientation='vertical', size_hint = (1,1))
+        self.panel_holder  = BoxLayout(orientation='vertical', size_hint=(1, 1))
         self.current_panel = None
         self._show_panel('login')
 
@@ -1368,12 +1374,11 @@ class SignInScreen(Screen):
     def _show_panel(self, name):
         self.panel_holder.clear_widgets()
         if name == 'login':
-            panel = SignInPanel(switch_cb=self._show_panel, success_cb = self._on_authenticated)
+            panel = SignInPanel(switch_cb=self._show_panel, success_cb=self._on_authenticated)
         else:
-            panel = SignUpPanel(switch_cb=self._show_panel, success_cb = self._on_authenticated)
+            panel = SignUpPanel(switch_cb=self._show_panel, success_cb=self._on_authenticated)
         self.panel_holder.add_widget(panel)
         self._current_panel = name
-
 
 
 class DashboardScreen(Screen):
