@@ -123,21 +123,32 @@ def make_label(text, font_size=sp(12), color=NEUTRAL, bold=False, halign="left",
     lbl.bind(size=lambda w, s: setattr(w, "text_size", (s[0], None)))
     return lbl
 
+# Card
 class Card(BoxLayout):
-    bg_color = ListProperty(list(CARD_BG))
-    radius = NumericProperty(dp(12))
+    bg_color   = ListProperty(list(CARD_BG))
+    radius     = NumericProperty(RADIUS_MD)
+    draw_panel = BooleanProperty(True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.bind(pos=self._draw, size=self._draw, bg_color = self._draw)
-        Clock.schedule_once(self._draw)
-    
+        if self.draw_panel:
+            self.bind(pos=self._draw, size=self._draw, bg_color=self._draw)
+            Clock.schedule_once(self._draw)
+
     def _draw(self, *_):
+        if not self.draw_panel:
+            return
         self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r    = float(self.radius)
         with self.canvas.before:
             Color(*self.bg_color)
-            RoundedRectangle(pos=self.pos, size=self.size,
-                             radius=[self.radius])
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*OVERLAY_SUBTLE)
+            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
+            Color(*BORDER)
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
 
 class DataArrow(Widget):
     #Up or down arrow to indicate the position of current data compared to overall trends
