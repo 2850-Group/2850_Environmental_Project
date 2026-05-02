@@ -240,26 +240,27 @@ class ErrorLabel(Label):
         self.height  = 0
         self.opacity = 0
             
+# Inputs 
+
+# Text input
 class Input(TextInput):
-    """Single line styled text input"""
-
     def __init__(self, hint='', password=False, **kwargs):
-
-        passed_font_size = kwargs.pop('font_size', 22)
+        passed_font_size = kwargs.pop('font_size', sp(13))
         super().__init__(
             hint_text=hint,
             password=password,
             multiline=False,
+            font_name=FONT_NAME,
             background_normal="",
             background_active="",
-            background_color=SURFACE,
+            background_color=(0, 0, 0, 0),
             foreground_color=NEUTRAL,
             hint_text_color=DIM,
             cursor_color=ACCENT,
             font_size=passed_font_size,
-            padding = [dp(8), dp(10), dp(8), 0],
+            padding=[dp(12), dp(13), dp(12), dp(11)],
             size_hint=(1, None),
-            height=dp(44),
+            height=dp(46),
             **kwargs,
         )
 
