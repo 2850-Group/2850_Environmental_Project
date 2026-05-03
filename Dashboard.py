@@ -1097,67 +1097,85 @@ class GraphOverlay(FloatLayout):
             lbl.pos = (px - dp(18), w.y + dp(2))
             w.add_widget(lbl)
 
-# Create a custom class that acts like a button but looks like a BoxLayout
+# Site tab button
 class SiteButton(ButtonBehavior, BoxLayout):
     def __init__(self, site_key, icon_name, label_text, **kwargs):
+        kwargs.setdefault("orientation", "vertical")
+        kwargs.setdefault("spacing", dp(3))
+        kwargs.setdefault("padding", [dp(8), dp(8), dp(8), dp(4)])
         super().__init__(**kwargs)
         self.site_key = site_key
-        self.orientation = 'horizontal'
-        self.spacing = dp(4)
-        self.padding = [dp(8), 0]
-        self.size_hint_x = 1
-        
-        # Add the icon and label directly to this class
+
         self.icon_widget = MDIcon(
-            icon=icon_name, 
-            font_size=sp(20), 
-            theme_text_color="Custom", 
-            text_color=DIM
+            icon=icon_name,
+            font_size=sp(18),
+            theme_text_color="Custom",
+            text_color=DIM,
+            halign="center", valign="middle",
+            size_hint=(1, None),
+            height=dp(22),
         )
-        self.label_widget = Label(
-            text=label_text, 
-            font_size=sp(14), 
-            color=DIM,
-            bold=False
-        )
-        
+        self.label_widget = make_label(label_text, font_size=sp(11), color=DIM, halign="center", height=dp(14))
+
         self.add_widget(self.icon_widget)
         self.add_widget(self.label_widget)
-        
-        # Draw the background
-        with self.canvas.before:
-            self.bg_color = Color(*CARD_BG)
-            self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(6)])
-        self.bind(pos=self._update_rect, size=self._update_rect)
 
-    def _update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
+        with self.canvas.before:
+            self._bg_clr = Color(*with_alpha(ACCENT, 0.0))
+            self._bg_rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[RADIUS_SM])
+        with self.canvas.after:
+            # Active underline (hidden by default)
+            self._ind_clr  = Color(*with_alpha(ACCENT, 0.0))
+            self._ind_rect = RoundedRectangle(
+                pos=(self.x, self.y), size=(self.width, dp(3)), radius=[dp(1.5)]
+            )
+        self.bind(pos=self._upd, size=self._upd)
+
+    def _upd(self, *_):
+        self._bg_rect.pos  = self.pos
+        self._bg_rect.size = self.size
+        self._ind_rect.pos  = (self.x, self.y)
+        self._ind_rect.size = (self.width, dp(3))
+
+    def set_active(self, active):
+        if active:
+            self._bg_clr.rgba      = with_alpha(ACCENT, 0.08)
+            self._ind_clr.rgba     = with_alpha(ACCENT, 1.0)
+            self.icon_widget.text_color = ACCENT
+            self.label_widget.color     = NEUTRAL
+            self.label_widget.bold      = True
+        else:
+            self._bg_clr.rgba      = with_alpha(ACCENT, 0.0)
+            self._ind_clr.rgba     = with_alpha(ACCENT, 0.0)
+            self.icon_widget.text_color = DIM
+            self.label_widget.color     = DIM
+            self.label_widget.bold      = False
 
 class SiteSelectorBar(BoxLayout):
     SITES = [
-        ("maize",    "corn",       "Maize"),
-        ("brassica", "sprout",     "Brassica"),
-        ("orchard",  "food-apple", "Orchard"),
+        ("maize",    "leaf-circle-outline", "Maize"),
+        ("brassica", "sprout-outline",      "Brassica"),
+        ("orchard",  "tree-outline", "Orchard"),
     ]
 
     def __init__(self, **kwargs):
         kwargs.setdefault("size_hint_y", None)
-        kwargs.setdefault("height", dp(44))
-        kwargs.setdefault("spacing", dp(6))
-        kwargs.setdefault("padding", [dp(12), dp(6)])
+        kwargs.setdefault("height", dp(58))
+        kwargs.setdefault("spacing", dp(0))
+        kwargs.setdefault("padding", [dp(12), dp(0), dp(12), dp(0)])
         super().__init__(**kwargs)
 
         self.on_select = None
-        self._btns = {}
+        self._btns     = {}
 
         with self.canvas.before:
             Color(*SURFACE)
-            self._bg = Rectangle(pos=self.pos, size=self.size)
+            self._bg   = Rectangle(pos=self.pos, size=self.size)
+            Color(*BORDER)
+            self._line = Line(points=[self.x, self.y, self.right, self.y], width=1.0)
         self.bind(pos=self._upd, size=self._upd)
 
         for key, icon_name, label in self.SITES:
-            # Use our custom SiteButton class
             btn = SiteButton(site_key=key, icon_name=icon_name, label_text=label)
             btn.bind(on_release=self._on_btn)
             self._btns[key] = btn
@@ -1166,8 +1184,9 @@ class SiteSelectorBar(BoxLayout):
         self.set_active("maize")
 
     def _upd(self, w, *_):
-        self._bg.pos = w.pos
-        self._bg.size = w.size
+        self._bg.pos   = w.pos
+        self._bg.size  = w.size
+        self._line.points = [w.x, w.y, w.right, w.y]
 
     def _on_btn(self, btn):
         if self.on_select:
@@ -1176,16 +1195,7 @@ class SiteSelectorBar(BoxLayout):
 
     def set_active(self, site_key):
         for key, btn in self._btns.items():
-            if key == site_key:
-                btn.bg_color.rgba = ACCENT
-                btn.icon_widget.text_color = (1, 1, 1, 1)
-                btn.label_widget.color = (1, 1, 1, 1)
-                btn.label_widget.bold = True
-            else:
-                btn.bg_color.rgba = CARD_BG
-                btn.icon_widget.text_color = DIM
-                btn.label_widget.color = DIM
-                btn.label_widget.bold = False
+            btn.set_active(key == site_key)
 
 
 #Bottom Navigation Bar
