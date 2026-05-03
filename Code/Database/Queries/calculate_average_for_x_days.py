@@ -1,14 +1,13 @@
-import datetime
 from dateutil.relativedelta import relativedelta
-import sqlite3
 
-def data_between_times(conn, cursor, start_timestamp, end_timestamp) :
+
+def data_between_times(conn, cursor, start_timestamp, end_timestamp):
     """
     SQL select statement to return all entries between two dates.
 
     Parameters
     ----------
-    conn : 
+    conn :
         Pre-established database connection.
     cursor :
         Pre-established database cursor.
@@ -22,12 +21,16 @@ def data_between_times(conn, cursor, start_timestamp, end_timestamp) :
     tuple
         Returned row with same timestamp.
     string
-        Indicates an error. 
+        Indicates an error.
     """
-    
-    cursor.execute(''' SELECT * FROM pest_monitoring WHERE time >= ? AND time <= ?''', (start_timestamp, end_timestamp))
+
+    cursor.execute(
+        """ SELECT * FROM pest_monitoring WHERE time >= ? AND time <= ?""",
+        (start_timestamp, end_timestamp),
+    )
     row = cursor.fetchall()
     return row
+
 
 def data_over_x_days(conn, cursor, timestamp, x):
     """
@@ -35,7 +38,7 @@ def data_over_x_days(conn, cursor, timestamp, x):
 
     Parameters
     ----------
-    conn : 
+    conn :
         Pre-established database connection.
     cursor :
         Pre-established database cursor.
@@ -49,6 +52,7 @@ def data_over_x_days(conn, cursor, timestamp, x):
 
     list = data_between_times(conn, cursor, end, start)
     return list
+
 
 def remove_record_null(data):
     """
@@ -69,13 +73,14 @@ def remove_record_null(data):
     num_columns = len(data[0])
     for i in range(0, len(data)):
         for j in range(0, num_columns):
-            if data[i][j] == '':
+            if data[i][j] == "":
                 clean = False
-        if clean == True:
+        if clean is True:
             clean_data.append(data[i])
         clean = True
-    
+
     return clean_data
+
 
 def average_data_all_rows(data):
     """
@@ -89,7 +94,8 @@ def average_data_all_rows(data):
     Returns
     -------
     average_all_data :
-        Average of all columns to do with numerical environmental statistics in the data.
+        Average of all columns to do with numerical
+        environmental statistics in the data.
     """
     average = []
     num_rows = len(data)
@@ -97,18 +103,19 @@ def average_data_all_rows(data):
     for j in range(0, 6):
         average.append(0)
         for i in range(0, num_rows):
-            average[j] += data[i][j+3]
-    
+            average[j] += data[i][j + 3]
+
     average.append(0)
     for i in range(0, num_rows):
         average[6] += data[i][15]
-    
+
     for i in range(0, 6):
-        average[i] = average[i]/num_rows
+        average[i] = average[i] / num_rows
 
     return average
 
-'''
+
+"""
 connection = sqlite3.connect('pest_control.db')
 cursor = connection.cursor()
 
@@ -118,5 +125,4 @@ rows = data_between_times(connection, cursor, start_date, end_date)
 
 print(rows)
 
-'''
-    
+"""
