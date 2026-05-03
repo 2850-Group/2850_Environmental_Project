@@ -35,6 +35,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
 import os, sqlite3, sys
+from kivy.graphics import Color, Rectangle
 
 # Fonts
 FONT_NAME = "Roboto"
@@ -66,6 +67,7 @@ cursor = conn.cursor()
 APP_NAME = "Environmental Dashboard"
 
 BG       = (0.039, 0.039, 0.039, 1)
+Window.clearcolor = BG
 SURFACE  = (0.078, 0.078, 0.078, 1)
 INPUT_BG = (0.102, 0.102, 0.102, 1)
 
@@ -436,10 +438,10 @@ class SignInPanel(BoxLayout):
             self._error.show("Please enter your username and password")
             return
 
-        role = sign_in_query(conn, cursor, user, pwd)
-        if role:
+        user_info = sign_in_query(conn, cursor, user, pwd)
+        if user_info:
             self._error.hide()
-            self.success_cb(role)
+            self.success_cb(user_info)
         else:
             self._error.show("Incorrect username or password.")
 
@@ -859,7 +861,7 @@ class GraphOverlay(FloatLayout):
         self._timestamps = timestamps
         self._values     = values
 
-        is_researcher = getattr(App.get_running_app(), 'user_role', 'Farmer') == 'Researcher'
+        is_researcher = getattr(MDApp.get_running_app(), 'user_role', 'Farmer') == 'Researcher'
 
         Window.bind(size=lambda _, s: setattr(self, 'size', s))
 
@@ -963,7 +965,7 @@ class GraphOverlay(FloatLayout):
                                     size_hint_x=None, width=dp(30)))
         self._from_input = TextInput(
             hint_text="YYYY-MM-DD", multiline=False,
-            background_color=SURFACE2, foreground_color=NEUTRAL,
+            background_color=SURFACE, foreground_color=NEUTRAL,
             hint_text_color=DIM, cursor_color=ACCENT,
             font_size=sp(11), size_hint_x=1,
         )
@@ -972,7 +974,7 @@ class GraphOverlay(FloatLayout):
                                     size_hint_x=None, width=dp(20)))
         self._to_input = TextInput(
             hint_text="YYYY-MM-DD", multiline=False,
-            background_color=SURFACE2, foreground_color=NEUTRAL,
+            background_color=SURFACE, foreground_color=NEUTRAL,
             hint_text_color=DIM, cursor_color=ACCENT,
             font_size=sp(11), size_hint_x=1,
         )
@@ -993,7 +995,7 @@ class GraphOverlay(FloatLayout):
     def _apply_filter(self, *_):
         start = self._from_input.text.strip() or None
         end   = self._to_input.text.strip()   or None
-        bridge = App.get_running_app().bridge
+        bridge = MDApp.get_running_app().bridge
         sim_date = bridge.timestamp.date()
 
         for val, label in ((start, "From"), (end, "To")):
@@ -1279,8 +1281,7 @@ class SiteSelectorBar(BoxLayout):
 class NavBar(BoxLayout):
     def __init__(self, screen_manager, **kwargs):
         # 1. FORCE size_hint_x to 1 so it fills the parent width automatically
-        kwargs['size_hint_x'] = 1 
-        kwargs.setdefault("size_hint_y", None)
+        kwargs.setdefault("size_hint", (1,None))
         kwargs.setdefault("height", dp(62))
         kwargs.setdefault("spacing", 0)
         super().__init__(**kwargs)
@@ -1592,6 +1593,8 @@ class ProfileScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
+        self.app = MDApp.get_running_app()
+
         layout = BoxLayout(orientation="vertical",
                            padding=dp(24), spacing=dp(16))
 
@@ -1614,18 +1617,25 @@ class ProfileScreen(Screen):
         av_box.add_widget(Widget())
         layout.add_widget(av_box)
 
-        layout.add_widget(Label(
-            text="Alex Johnson", font_size=sp(18),
-            color=NEUTRAL, bold=True, size_hint_y=None, height=dp(30)
-        ))
-        layout.add_widget(Label(
-            text="alex.johnson@example.com", font_size=sp(12),
-            color=DIM, size_hint_y=None, height=dp(24)
-        ))
+        # NAME LABEL
+        self.name_lbl = Label(
+            text=self.app.user_fullname, # Use app property
+            font_size=sp(18), color=NEUTRAL, bold=True, 
+            size_hint_y=None, height=dp(30)
+        )
+        layout.add_widget(self.name_lbl)
+
+        # USERNAME LABEL
+        self.user_lbl = Label(
+            text=f"@{self.app.user_username}", # Use app property
+            font_size=sp(12), color=DIM, 
+            size_hint_y=None, height=dp(24)
+        )
+        layout.add_widget(self.user_lbl)
 
         # Info cards
         self._role_value_lbl = None
-        for (label, value) in [("Role", ""),
+        for (label, value) in [("Role", self.app.user_role),
                                 ("Location", "Leeds, UK"),
                                 ("Devices", "7 connected"),
                                 ("Plan", "Pro")]:
@@ -1646,9 +1656,11 @@ class ProfileScreen(Screen):
         self.add_widget(layout)
 
     def on_enter(self, *_):
+        """ Refresh labels whenever the screen is viewed """
+        self.name_lbl.text = self.app.user_fullname
+        self.user_lbl.text = f"@{self.app.user_username}"
         if self._role_value_lbl:
-            self._role_value_lbl.text = MDApp.get_running_app().user_role
-
+            self._role_value_lbl.text = self.app.user_role
 
 class DashboardHeader(BoxLayout):
     # Define these as None initially if you want to be safe, 
@@ -1708,6 +1720,11 @@ class DashboardHeader(BoxLayout):
 
 # App Root
 class DashboardApp(MDApp):
+
+    user_fullname = StringProperty("Guest")
+    user_username = StringProperty("guest.user")
+    user_role = StringProperty("Farmer")
+    
     def build(self):
         self.title = "Environmental App"
 
@@ -1738,14 +1755,26 @@ class DashboardApp(MDApp):
         self._root.add_widget(self.sm)
         return self._root
     
-    def _on_login_success(self, role):
-        self.user_role = role
+    def _on_login_success(self, user_info):
+        self.user_role = user_info["role"]
+        self.user_fullname = user_info["fullname"]
+        self.user_username = user_info["username"]
+
         self._root.clear_widgets()
-        self._root.size_hint = (1,1)
-        self._root.pos = (0,0)
+
+        # Manually paint the root background dark
+        with self._root.canvas.before:
+            Color(0.039, 0.039, 0.039, 1) # Match your BG variable
+            self._bg_rect = Rectangle(pos=self._root.pos, size=self._root.size)
+        
+        # Update background size if the window resizes
+        self._root.bind(pos=lambda w, p: setattr(self._bg_rect, 'pos', p),
+                        size=lambda w, s: setattr(self._bg_rect, 'size', s))
+        
         self._root.add_widget(self.header)
+
         self._root.add_widget(self._app_sm)
-        self._nav.size_hint_x = 1
+
         self._root.add_widget(self._nav)
 
 
