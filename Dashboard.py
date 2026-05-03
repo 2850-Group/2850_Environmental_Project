@@ -36,6 +36,7 @@ from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
 import os, sqlite3, sys
 from kivy.graphics import Color, Rectangle
+from kivy.uix.behaviors import FocusBehavior
 
 # Fonts
 FONT_NAME = "Roboto"
@@ -83,7 +84,7 @@ ALERT_WARN = (1.000, 0.667, 0.000, 1)
 ALERT_CRIT = DOWN_CLR
 
 NEUTRAL = (0.910, 0.910, 0.910, 1)
-DIM     = (0.533, 0.533, 0.533, 1)
+DIM     = (1, 1, 1, 1)
 
 OVERLAY_SUBTLE = (1, 1, 1, 0.03)
 OVERLAY_LIGHT  = (1, 1, 1, 0.05)
@@ -263,6 +264,7 @@ class Input(TextInput):
             padding=[dp(12), dp(13), dp(12), dp(11)],
             size_hint=(1, None),
             height=dp(46),
+            write_tab = False,
             **kwargs,
         )
 
@@ -332,6 +334,12 @@ class SignInButton(Button):
             RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
             Color(*with_alpha((0, 0, 0, 1), 0.12))
             Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
+
+    def on_focus(self, instance, value):
+        if value:
+            self.bg_color = ACCENT  # Highlight the button when tabbed onto
+        else:
+            self.bg_color = SURFACE # Return to normal when focus leaves
 
 # Secondary button
 class SignUpButton(Button):
@@ -413,6 +421,7 @@ class SignInPanel(BoxLayout):
         self.password = InputField(hint='••••••••', password=True)
         self.add_widget(self.password)
 
+        self.username._input.focus_next = self.password._input
         self._error = ErrorLabel()
         self.add_widget(self._error)
 
@@ -1194,8 +1203,8 @@ class SiteButton(ButtonBehavior, BoxLayout):
             size_hint=(1, None),
             height=dp(22),
         )
-        self.label_widget = make_label(label_text, font_size=sp(11), color=DIM, halign="center", height=dp(14))
-
+        self.label_widget = make_label(label_text, font_size=sp(18), color=DIM, halign="center", height=dp(14))
+        
         self.add_widget(self.icon_widget)
         self.add_widget(self.label_widget)
 
@@ -1726,6 +1735,7 @@ class DashboardApp(MDApp):
     user_role = StringProperty("Farmer")
     
     def build(self):
+        Window.bind(on_key_down=self._on_keyboard_down)
         self.title = "Environmental App"
 
         self._root = BoxLayout(orientation = "vertical")
@@ -1754,6 +1764,13 @@ class DashboardApp(MDApp):
 
         self._root.add_widget(self.sm)
         return self._root
+    
+    def _on_keyboard_down(self, instance, keyboard, keycode, text, modifiers):
+        if keycode == 9:  # 9 is the 'Tab' key
+            # This logic triggers Kivy's internal focus shift
+            current_focus = [w for w in Window.children if getattr(w, 'focus', False)]
+            # Kivy's TextInput handles focus_next automatically if write_tab=False
+            return False
     
     def _on_login_success(self, user_info):
         self.user_role = user_info["role"]
