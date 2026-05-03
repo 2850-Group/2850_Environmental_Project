@@ -51,7 +51,7 @@ except Exception:
     FONT_NAME = "Roboto"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
-from Code.bridge import Bridge
+from Code.bridge import Bridge, DATASET_START
 from datetime import datetime
 from kivymd.uix.label import MDIcon
 from kivy.uix.behaviors import ButtonBehavior
@@ -846,7 +846,7 @@ class AlertsPanel(BoxLayout):
 class GraphOverlay(FloatLayout):
     AVG_WINDOW = 20
 
-    def __init__(self, title, unit, site, timestamps, values, **kwargs):
+    def __init__(self, title, unit, site, timestamps, values, stat_index=0, **kwargs):
         kwargs.setdefault("size", Window.size)
         kwargs.setdefault("pos", (0, 0))
         super().__init__(**kwargs)
@@ -854,13 +854,15 @@ class GraphOverlay(FloatLayout):
         self._title      = title
         self._unit       = unit
         self._site       = site
+        self._site_key   = site.lower()
+        self._stat_index = stat_index
         self._timestamps = timestamps
         self._values     = values
 
-        self._win_size_cb = lambda _, s: setattr(self, "size", s)
-        Window.bind(size=self._win_size_cb)
+        is_researcher = getattr(App.get_running_app(), 'user_role', 'Farmer') == 'Researcher'
 
-        # Background scrim
+        Window.bind(size=lambda _, s: setattr(self, 'size', s))
+
         scrim = Widget(size=self.size, pos=self.pos)
         with scrim.canvas:
             Color(0, 0, 0, 0.72)
@@ -872,9 +874,8 @@ class GraphOverlay(FloatLayout):
         scrim.bind(on_touch_down=self._scrim_touch)
         self.add_widget(scrim)
 
-        # Panel
-        pw = min(Window.width * 0.94, dp(820))
-        ph = min(Window.height * 0.72, dp(560))
+        pw = Window.width  * 0.94
+        ph = Window.height * (0.82 if is_researcher else 0.72)
         panel = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
@@ -941,14 +942,90 @@ class GraphOverlay(FloatLayout):
                 Ellipse(pos=(0, 0), size=(dp(8), dp(8)))
             dot.bind(pos=lambda w, p, c=clr: self._redraw_dot(w, p, c))
             legend.add_widget(dot)
-            legend.add_widget(make_label(lbl_text, font_size=sp(9), color=DIM, halign="left",
-                                         size_hint=(None, 1), width=dp(70)))
+            legend.add_widget(Label(
+                text=lbl_text, font_size=sp(9), color=DIM,
+                halign="left", size_hint_x=None, width=dp(70),
+            ))
         legend.add_widget(Widget())
         panel.add_widget(legend)
+
+        if is_researcher:
+            self._build_researcher_ui(panel)
+
         self.add_widget(panel)
 
-        # Draw after layout settles
         Clock.schedule_once(self._draw_graph, 0.1)
+
+    def _build_researcher_ui(self, panel): # additional UI for researchers
+        filter_row = BoxLayout(orientation="horizontal", size_hint_y=None,
+                               height=dp(32), spacing=dp(6))
+        filter_row.add_widget(Label(text="From", font_size=sp(10), color=DIM,
+                                    size_hint_x=None, width=dp(30)))
+        self._from_input = TextInput(
+            hint_text="YYYY-MM-DD", multiline=False,
+            background_color=SURFACE2, foreground_color=NEUTRAL,
+            hint_text_color=DIM, cursor_color=ACCENT,
+            font_size=sp(11), size_hint_x=1,
+        )
+        filter_row.add_widget(self._from_input)
+        filter_row.add_widget(Label(text="To", font_size=sp(10), color=DIM,
+                                    size_hint_x=None, width=dp(20)))
+        self._to_input = TextInput(
+            hint_text="YYYY-MM-DD", multiline=False,
+            background_color=SURFACE2, foreground_color=NEUTRAL,
+            hint_text_color=DIM, cursor_color=ACCENT,
+            font_size=sp(11), size_hint_x=1,
+        )
+        filter_row.add_widget(self._to_input)
+        apply_btn = Button(
+            text="Apply", font_size=sp(11), color=NEUTRAL, bold=True,
+            size_hint_x=None, width=dp(52),
+            background_normal="", background_color=(0, 0, 0, 0),
+        )
+        apply_btn.bind(on_release=self._apply_filter)
+        apply_btn.bind(pos=self._draw_small_btn, size=self._draw_small_btn)
+        filter_row.add_widget(apply_btn)
+        panel.add_widget(filter_row)
+
+        self._filter_err = ErrorLabel()
+        panel.add_widget(self._filter_err)
+
+    def _apply_filter(self, *_):
+        start = self._from_input.text.strip() or None
+        end   = self._to_input.text.strip()   or None
+        bridge = App.get_running_app().bridge
+        sim_date = bridge.timestamp.date()
+
+        for val, label in ((start, "From"), (end, "To")):
+            if val:
+                try:
+                    d = datetime.strptime(val, "%Y-%m-%d").date()
+                    if d > sim_date:
+                        self._filter_err.show(f"{label} date is in the future")
+                        return
+                    if d < DATASET_START:
+                        self._filter_err.show(f"{label} date is before the dataset")
+                        return
+                except ValueError:
+                    self._filter_err.show(f"{label} date must be YYYY-MM-DD")
+                    return
+
+        self._filter_err.hide()
+        timestamps, values = bridge.get_history(self._site_key, self._stat_index,
+                                                start_date=start, end_date=end)
+        if not values:
+            return
+        self._timestamps = timestamps
+        self._values     = values
+        self._draw_graph()
+
+    def _draw_small_btn(self, btn, *_):
+        btn.canvas.before.clear()
+        with btn.canvas.before:
+            Color(*CARD_BG)
+            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+            Color(*BORDER)
+            Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, dp(6)], width=1)
 
     def _upd_panel(self, w, *_):
         self._panel_rect.pos  = w.pos
@@ -1434,6 +1511,7 @@ class DashboardScreen(Screen):
             site       = self._active_site,
             timestamps = timestamps,
             values     = values,
+            stat_index = stat_index,
         )
         Window.add_widget(overlay)
 
