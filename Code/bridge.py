@@ -18,6 +18,7 @@ SITE_BRASSICA = 1
 SITE_ORCHARD  = 2
 
 AVERAGE_WINDOW_DAYS = 14
+DATASET_START = datetime.date(2022, 1, 1)
 
 STAT_LABELS = ["air_temp", "humidity", "leaf_wetness", "light", "vibration", "pest_count", "rain"]
 # [air_temp, humidity, leaf_wetness, light, vibration, pest_count, rain]
@@ -321,7 +322,7 @@ class Bridge:
     # DB stores site_id as 'site_maize', 'site_brassica', 'site_orchard'
     _SITE_DB_ID = {"maize": "site_maize", "brassica": "site_brassica", "orchard": "site_orchard"}
 
-    def get_history(self, site_key, stat_index):
+    def get_history(self, site_key, stat_index, start_date=None, end_date=None):
         """
         Returns historical data from dataset start up to current simulation time.
         Adaptively downsamples to ~300 points regardless of how far into the
@@ -344,11 +345,15 @@ class Bridge:
                       "light_lux", "vibration_level", "pest_trap_count",
                       "wx_rain_mm_hr"][stat_index]
 
+        lower     = f"{start_date} 00:00:00" if start_date else "2022-01-01 00:00:00" # dataset start
+        sim_upper = str(self.timestamp)
+        upper     = min(f"{end_date} 23:59:59", sim_upper) if end_date else sim_upper # current simulation time
+
         self.cursor.execute(
             f"SELECT time, {col_name} FROM pest_monitoring "
-            f"WHERE site_id = ? AND time >= '2022-01-01 00:00:00' AND time <= ? "
+            f"WHERE site_id = ? AND time >= ? AND time <= ? "
             f"ORDER BY time ASC",
-            (site_db_id, str(self.timestamp))
+            (site_db_id, lower, upper)
         )
         rows = self.cursor.fetchall()
 

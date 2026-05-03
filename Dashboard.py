@@ -37,7 +37,7 @@ import bcrypt
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
-from Code.bridge import Bridge
+from Code.bridge import Bridge, DATASET_START
 from datetime import datetime
 import random
 import math
@@ -823,8 +823,7 @@ class GraphOverlay(FloatLayout):
     # Rolling average window (number of data points)
     AVG_WINDOW = 20
 
-    def __init__(self, title, unit, site, timestamps, values, **kwargs):
-        # FloatLayout added to Window needs explicit size — size_hint doesn't work there
+    def __init__(self, title, unit, site, timestamps, values, stat_index=0, **kwargs):
         kwargs.setdefault("size", Window.size)
         kwargs.setdefault("pos", (0, 0))
         super().__init__(**kwargs)
@@ -832,13 +831,15 @@ class GraphOverlay(FloatLayout):
         self._title      = title
         self._unit       = unit
         self._site       = site
+        self._site_key   = site.lower()
+        self._stat_index = stat_index
         self._timestamps = timestamps
         self._values     = values
 
-        # Keep sized to window if it resizes
+        is_researcher = getattr(App.get_running_app(), 'user_role', 'Farmer') == 'Researcher'
+
         Window.bind(size=lambda _, s: setattr(self, 'size', s))
 
-        # ── dark scrim ────────────────────────────────────────────────
         scrim = Widget(size=self.size, pos=self.pos)
         with scrim.canvas:
             Color(0, 0, 0, 0.72)
@@ -848,9 +849,8 @@ class GraphOverlay(FloatLayout):
         scrim.bind(on_touch_down=self._scrim_touch)
         self.add_widget(scrim)
 
-        # ── panel card ────────────────────────────────────────────────
         pw = Window.width  * 0.94
-        ph = Window.height * 0.72
+        ph = Window.height * (0.82 if is_researcher else 0.72)
         panel = BoxLayout(
             orientation="vertical",
             size_hint=(None, None),
@@ -909,16 +909,89 @@ class GraphOverlay(FloatLayout):
                 text=lbl_text, font_size=sp(9), color=DIM,
                 halign="left", size_hint_x=None, width=dp(70),
             ))
-        legend.add_widget(Widget())   # spacer
+        legend.add_widget(Widget())
         panel.add_widget(legend)
+
+        if is_researcher:
+            self._build_researcher_ui(panel)
 
         self.add_widget(panel)
 
-        # draw after two frames to ensure BoxLayout has distributed sizes
         Clock.schedule_once(self._draw_graph, 0.1)
         Clock.schedule_once(self._draw_graph, 0.3)
 
     # ── helpers ──────────────────────────────────────────────────────
+
+    def _build_researcher_ui(self, panel): # additional UI for researchers
+        filter_row = BoxLayout(orientation="horizontal", size_hint_y=None,
+                               height=dp(32), spacing=dp(6))
+        filter_row.add_widget(Label(text="From", font_size=sp(10), color=DIM,
+                                    size_hint_x=None, width=dp(30)))
+        self._from_input = TextInput(
+            hint_text="YYYY-MM-DD", multiline=False,
+            background_color=SURFACE2, foreground_color=NEUTRAL,
+            hint_text_color=DIM, cursor_color=ACCENT,
+            font_size=sp(11), size_hint_x=1,
+        )
+        filter_row.add_widget(self._from_input)
+        filter_row.add_widget(Label(text="To", font_size=sp(10), color=DIM,
+                                    size_hint_x=None, width=dp(20)))
+        self._to_input = TextInput(
+            hint_text="YYYY-MM-DD", multiline=False,
+            background_color=SURFACE2, foreground_color=NEUTRAL,
+            hint_text_color=DIM, cursor_color=ACCENT,
+            font_size=sp(11), size_hint_x=1,
+        )
+        filter_row.add_widget(self._to_input)
+        apply_btn = Button(
+            text="Apply", font_size=sp(11), color=NEUTRAL, bold=True,
+            size_hint_x=None, width=dp(52),
+            background_normal="", background_color=(0, 0, 0, 0),
+        )
+        apply_btn.bind(on_release=self._apply_filter)
+        apply_btn.bind(pos=self._draw_small_btn, size=self._draw_small_btn)
+        filter_row.add_widget(apply_btn)
+        panel.add_widget(filter_row)
+
+        self._filter_err = ErrorLabel()
+        panel.add_widget(self._filter_err)
+
+    def _apply_filter(self, *_):
+        start = self._from_input.text.strip() or None
+        end   = self._to_input.text.strip()   or None
+        bridge = App.get_running_app().bridge
+        sim_date = bridge.timestamp.date()
+
+        for val, label in ((start, "From"), (end, "To")):
+            if val:
+                try:
+                    d = datetime.strptime(val, "%Y-%m-%d").date()
+                    if d > sim_date:
+                        self._filter_err.show(f"{label} date is in the future")
+                        return
+                    if d < DATASET_START:
+                        self._filter_err.show(f"{label} date is before the dataset")
+                        return
+                except ValueError:
+                    self._filter_err.show(f"{label} date must be YYYY-MM-DD")
+                    return
+
+        self._filter_err.hide()
+        timestamps, values = bridge.get_history(self._site_key, self._stat_index,
+                                                start_date=start, end_date=end)
+        if not values:
+            return
+        self._timestamps = timestamps
+        self._values     = values
+        self._draw_graph()
+
+    def _draw_small_btn(self, btn, *_):
+        btn.canvas.before.clear()
+        with btn.canvas.before:
+            Color(*CARD_BG)
+            RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+            Color(*BORDER)
+            Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, dp(6)], width=1)
 
     def _upd_panel(self, w, *_):
         self._panel_rect.pos  = w.pos
@@ -1425,6 +1498,7 @@ class DashboardScreen(Screen):
             site       = self._active_site,
             timestamps = timestamps,
             values     = values,
+            stat_index = stat_index,
         )
         Window.add_widget(overlay)
 
