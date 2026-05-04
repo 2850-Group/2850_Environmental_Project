@@ -13,8 +13,7 @@ from kivy.uix.label import Label
 from kivy.uix.button import Button
 from kivy.uix.widget import Widget
 from kivy.graphics import (
-    Color, Rectangle, RoundedRectangle, Line, Ellipse,
-    Canvas, Triangle, InstructionGroup
+    Color, Rectangle, RoundedRectangle, Line, Ellipse, Triangle, InstructionGroup
 )
 from kivy.uix.camera import Camera
 from kivy.metrics import dp, sp
@@ -30,12 +29,15 @@ from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query
 from Code.Database.Queries.sign_in import sign_up_query
 import sqlite3
-import bcrypt
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
 from Code.bridge import Bridge
 from datetime import datetime
+import numpy as np
+import tensorflow as tf
+from PIL import Image as PILImage
+import threading
 import random
 import math
 
@@ -44,6 +46,13 @@ os.environ['KIVY_CAMERA'] = 'opencv'
 
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
+
+print("Loading model")
+model = tf.keras.models.load_model('crop_disease_model.keras', safe_mode=False)
+with open ("class_names.txt") as f:
+    CLASS_NAMES = f.read().splitlines()
+SAVE_DIR = "captured_crops"
+os.makedirs(SAVE_DIR, exist_ok = True)
 
 #Colour Palette
 BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg
@@ -79,6 +88,19 @@ def  make_label(text, font_size=14, color = NEUTRAL, bold = False, halign='left'
     )
     label.bind(size=lambda inst, val: setattr(inst, 'text_size', (val[0], None)))
     return label
+
+def predict_image(img_path):
+    img = PILImage.open(img_path).convert("RGB").resize((128, 128))
+    arr = np.array(img, dtype=np.float32)
+    print(f"Image mean pixel value: {arr.mean():.2f}")  
+    if arr.mean() < 5.0:
+        return "Error: black image captured - try again", 0.0
+    arr = np.expand_dims(arr, axis = 0)
+    prediction = model.predict(arr)
+    top_index = int(np.argmax(prediction[0]))
+    confidence = float(prediction[0][top_index]) * 100
+    label = CLASS_NAMES[top_index].replace("___", " - ").replace("_", " ")
+    return label, confidence
 
 class Card(BoxLayout):
     bg_color = ListProperty(list(CARD_BG))
@@ -1322,7 +1344,7 @@ class ScanScreen(Screen):
         ))
 
         layout.add_widget(Label(
-            text="Point camera at QR code or device ID",
+            text="Point camera at crop leaf and press Capture",
             font_size=sp(12), color=DIM, halign="center",
             size_hint=(1, None), height = dp(20)
         ))
@@ -1331,20 +1353,68 @@ class ScanScreen(Screen):
 
         layout.add_widget(self.camera)
 
-        scan_btn = Button(
-            text="Start Scanning", font_size=sp(14),
+        self.result_label = Label(
+            text="",
+            font_size=sp(14),
+            color=NEUTRAL,
+            halign="center",
+            markup=True,
+            size_hint=(1, None),
+            height=dp(60)
+        )
+
+        layout.add_widget(self.result_label)
+
+        self.scan_btn = Button(
+            text="Capture", font_size=sp(14),
             height=dp(48),
             background_color=(*ACCENT[:3], 1),
             color=NEUTRAL, bold=True, size_hint = (1, None)
         )
-        scan_btn.bind(on_press=self.capture)
+        self.scan_btn.bind(on_press=self.capture)
 
-        layout.add_widget(scan_btn)
+        layout.add_widget(self.scan_btn)
         self.add_widget(layout)
 
     def capture(self, instance):
-        self.camera.export_to_png('scan.png')
+        self.scan_btn.disabled = True
+        self.result_label.text = "Analysing plant..."
+        Clock.schedule_once(self._do_capture, 2.0)
+        
 
+    def _do_capture(self, dt):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(SAVE_DIR, f"crop_{timestamp}.png")
+        self.camera.export_to_png(filename)
+        check = PILImage.open(filename)
+        check_arr = np.array(check)
+        print(f"Saved PNG mean: {check_arr.mean():.2f}")
+    
+        if check_arr.mean() < 5.0:
+            self.result_label.text = "Black image captured - please try again"
+            self.scan_btn.disabled = False
+            self.scan_btn.text = "Capture"
+            return  # don't run inference on a black image
+    
+        self.analyse(filename)
+    
+    def analyse(self, filename):
+        def do_inference():
+            label, confidence = predict_image(filename)
+            Clock.schedule_once(
+                lambda dt: self.show_result(label, confidence), 0
+            )
+    
+        threading.Thread(target=do_inference, daemon = True).start()
+
+    def show_result(self, label, confidence):
+        self.result_label.text =  (
+            f"[b]{label}[/b]\n"
+            f"Confidence: {confidence:.1f}%"
+        )
+        self.result_label.text_size = (self.result_label.width, None)
+        self.scan_btn.disabled = False
+        self.scan_btn.text = "Scan Again"
 
 class ProfileScreen(Screen):
     def __init__(self, **kwargs):
