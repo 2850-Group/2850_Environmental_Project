@@ -2333,9 +2333,22 @@ class ProfileScreen(Screen):
             row.add_widget(val_lbl)
             layout.add_widget(row)
             if label == "Role":
-                self._role_value_lbl = val_lbl
+                            self._role_value_lbl = val_lbl
+        layout.add_widget(Widget())  # spacer pushes button to bottom
+            
+        sign_out_btn = Button(
+            text="Sign Out",
+            font_size=sp(14),
+            bold=True,
+            color=DOWN_CLR,
+            background_normal="",
+            background_color=(0, 0, 0, 0),
+            size_hint=(1, None),
+            height=dp(50),
+        )
+        sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
+        layout.add_widget(sign_out_btn)
 
-        layout.add_widget(Widget())
         self.add_widget(layout)
 
     def on_enter(self, *_):
@@ -2480,6 +2493,14 @@ class DashboardApp(MDApp):
         self._root.add_widget(self._app_sm)
 
         self._root.add_widget(self._nav)
+
+    def sign_out(self):
+        self._app_sm.transition = NoTransition()
+        self._app_sm.current = "dashboard"
+        self._nav._set_active("dashboard")
+        self._root.clear_widgets()
+        self._root.add_widget(self.sm)
+        self.sm.current = "login"
 
 
 if __name__ == "__main__":
