@@ -259,17 +259,32 @@ class Bridge:
 
         Returns
         -------
-        list of bool or None
-            one entry per stat: True = above average (up arrow)
-            False = below average (down arrow)
-            None = no average
+        True  = Up (Green)
+        False = Down (Red)
+        "stable" = No change (White dash)
+        None  = No data
         """
+        flags = []
         if averages is None:
-            return [None] * len(stats)
-        return [
-            None if s is None or a is None else s > a
-            for s, a in zip(stats, averages)
-        ]
+            return ["stable"] * len(stats)
+
+        for s, a in zip(stats, averages):
+            if s is None or a is None:
+                flags.append("stable")
+                continue
+                
+            # Round to 1 decimal place to avoid float precision errors
+            s_rounded = round(s, 1)
+            a_rounded = round(a, 1)
+
+            if s_rounded > a_rounded:
+                flags.append("up")
+            elif s_rounded < a_rounded:
+                flags.append("down")
+            else:
+                # This now correctly catches values like 12.11 and 12.09 as "equal"
+                flags.append("stable") 
+        return flags
 
     def _format_deltas(self, stats, averages):
         """
@@ -289,11 +304,20 @@ class Bridge:
             one formatted string per stat
         """
         if averages is None:
-            return ["–"] * len(stats)
-        return [
-            "–" if s is None or a is None else f"{(s - a):+.1f}{unit}"
-            for s, a, unit in zip(stats, averages, STAT_UNITS)
-        ]
+            return ["—"] * len(stats)
+        
+        deltas = []
+        for s, a, unit in zip(stats, averages, STAT_UNITS):
+            if s is None or a is None:
+                deltas.append("—")
+                continue
+                
+            # Use the same rounding logic here
+            if round(s, 1) == round(a, 1):
+                deltas.append("—") 
+            else:
+                deltas.append(f"{(s - a):+.1f}{unit}")
+        return deltas
 
     def _alerts_to_dicts(self, alerts):
         """
