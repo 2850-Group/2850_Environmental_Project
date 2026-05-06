@@ -2346,10 +2346,22 @@ class ProfileScreen(Screen):
             size_hint=(1, None),
             height=dp(50),
         )
-        sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
-        layout.add_widget(sign_out_btn)
 
         self.add_widget(layout)
+
+        def _draw_signout_btn(btn, *_):
+            btn.canvas.before.clear()
+            with btn.canvas.before:
+                r = float(RADIUS_SM)
+                fill = with_alpha(DOWN_CLR, 0.08) if btn.state == "down" else with_alpha(DOWN_CLR, 0.0)
+                Color(*fill)
+                RoundedRectangle(pos=btn.pos, size=btn.size, radius=[r])
+                Color(*with_alpha(DOWN_CLR, 0.45))
+                Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, r], width=1.0)
+
+        sign_out_btn.bind(pos=_draw_signout_btn, size=_draw_signout_btn, state=_draw_signout_btn)
+        sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
+        layout.add_widget(sign_out_btn)
 
     def on_enter(self, *_):
         """Refresh labels whenever the screen is viewed"""
