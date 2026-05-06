@@ -332,43 +332,34 @@ class DataArrow(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.bind(pos=self._draw, size=self._draw, direction=self._draw)
-        Clock.schedule_once(self._draw)
 
     def _draw(self, *_):
         self.canvas.clear()
-        width, height = self.size
-        nx, ny = self.x + width / 2, self.y + height / 2
-        awidth = min(width, height) * 0.55
-        aheight = min(width, height) * 0.65
-        clr = UP_CLR if self.direction == "up" else DOWN_CLR
+        nx, ny = self.x + self.width / 2, self.y + self.height / 2
+        aw = min(self.width, self.height) * 0.55
+        ah = min(self.width, self.height) * 0.65
+
+        # Determine Color and Shape
+        if self.direction == "up":
+            clr = (0, 1, 0, 1) # Green
+        elif self.direction == "down":
+            clr = (1, 0, 0, 1) # Red
+        else:
+            clr = (1, 1, 1, 1) # White for "stable"[cite: 3]
+
         with self.canvas:
             Color(*clr)
             if self.direction == "up":
-                # Triangle pointing up
-                Triangle(
-                    points=[
-                        nx - awidth / 2,
-                        ny - aheight / 4,
-                        nx + awidth / 2,
-                        ny - aheight / 4,
-                        nx,
-                        ny + aheight / 2,
-                    ]
-                )
+                Triangle(points=[nx-aw/2, ny-ah/4, nx+aw/2, ny-ah/4, nx, ny+ah/2])
+            elif self.direction == "down":
+                Triangle(points=[nx-aw/2, ny+ah/4, nx+aw/2, ny+ah/4, nx, ny-ah/2])
+            elif self.direction == "stable":
+                # White horizontal dash for no change
+                Line(points=[nx - aw/2, ny, nx + aw/2, ny], width=dp(1.5))
             else:
-                # Triangle pointing down
-                Triangle(
-                    points=[
-                        nx - awidth / 2,
-                        ny + aheight / 4,
-                        nx + awidth / 2,
-                        ny + aheight / 4,
-                        nx,
-                        ny - aheight / 2,
-                    ]
-                )
+                Line(points=[nx - aw/2, ny, nx + aw/2, ny], width=dp(1.5))
 
-
+                
 # Used for modal/auth containers
 class RoundedCard(FloatLayout):
     '''
@@ -1072,10 +1063,17 @@ class DataCard(Card):
         val_row.add_widget(self._arrow)
         self.content.add_widget(val_row)
 
+        if direction == "up":
+            delta_color = (0, 1, 0, 1)    # Green (UP_CLR)
+        elif direction == "down":
+            delta_color = (1, 0, 0, 1)    # Red (DOWN_CLR)
+        else:
+            delta_color = (1, 1, 1, 1)    # White for "stable" or None
+
         self._delta_lbl = make_label(
             delta,
             font_size=sp(9),
-            color=(UP_CLR if direction == "up" else DOWN_CLR),
+            color=delta_color,  # Use the dynamic color variable
             halign="right",
             height=dp(16),
         )
@@ -1116,12 +1114,31 @@ class DataCard(Card):
 
     def update(self, value, direction, delta):
         self._direction = direction
-        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        
+        # 1. Update the card's top accent bar color
+        if direction == "up":
+            self._bar_color = UP_CLR
+        elif direction == "down":
+            self._bar_color = DOWN_CLR
+        elif direction == "stable":
+            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
+        else:
+            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
+            
         self._draw_top_bar()
         self._value_lbl.text = self._fmt(value)
         self._arrow.direction = direction
         self._delta_lbl.text = delta
-        self._delta_lbl.color = UP_CLR if direction == "up" else DOWN_CLR
+        
+        # 2. Update the text color of the delta string
+        if direction == "up":
+            self._delta_lbl.color = UP_CLR
+        elif direction == "down":
+            self._delta_lbl.color = DOWN_CLR
+        elif direction == "stable":
+            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
+        else:
+            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
@@ -1161,12 +1178,22 @@ class DataCard(Card):
 
     def update(self, value, direction, delta):
         self._direction = direction
-        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        if direction == "up":
+            self._bar_color = UP_CLR
+        elif direction == "down":
+            self._bar_color = DOWN_CLR
+        else:
+            self._bar_color = (1, 1 , 1 ,1)
         self._draw_top_bar()
         self._value_lbl.text = self._fmt(value)
         self._arrow.direction = direction
         self._delta_lbl.text = delta
-        self._delta_lbl.color = UP_CLR if direction == "up" else DOWN_CLR
+        if direction == "up":
+            self._delta_lbl.color = UP_CLR
+        elif direction == "down":
+            self._delta_lbl.color = DOWN_CLR
+        else:
+            self._delta_lbl.color = (1, 1 , 1 ,1)
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
@@ -1232,7 +1259,14 @@ class AlertRow(BoxLayout):
         self.alert = alert
         self.height = self.COLLAPSED_H
 
-        clr = ALERT_CRIT if alert["level"] == "critical" else ALERT_WARN
+        # Defaults to white if status is 'all clear' or 
+        # anything other than critical/warning
+        if alert["level"] == "critical":
+            clr = ALERT_CRIT
+        elif alert["level"] == "warning":
+            clr = ALERT_WARN
+        else:
+            clr = (1, 1, 1, 1)  # Pure White for 'all clear'
 
         # Summary row
         row = BoxLayout(
@@ -2598,6 +2632,7 @@ class DashboardScreen(Screen):
         if data:
             self._render(data)
 
+    # main.py inside class DashboardScreen
     def _render(self, site):
         stats = site["stats"]
         flags = site["flags"]
@@ -2606,9 +2641,12 @@ class DashboardScreen(Screen):
 
         for i, card in enumerate(self._cards):
             val = f"{stats[i]:.1f}" if stats[i] is not None else "-"
-            direction = "up" if flags[i] else "down"
+            
+            # Ensure 'stable' is lowercase so DataArrow detects it
+            direction = str(flags[i]).lower() 
+                
             card.update(val, direction, deltas[i])
-
+        
         self.alerts_panel.update_alerts(alerts)
 
     def on_bridge_tick(self, maize, brassica, orchard, timestamp):
