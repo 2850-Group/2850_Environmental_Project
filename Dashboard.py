@@ -58,6 +58,7 @@ import random
 import math
 from kivymd.uix.label import MDIcon
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.relativelayout import RelativeLayout
 
 # Fonts
 FONT_NAME = "Roboto"
@@ -736,9 +737,7 @@ class SignUpPanel(BoxLayout):
 # Stat card
 class DataCard(Card):
     def __init__(self, title, value, unit, direction, delta, **kwargs):
-        kwargs.setdefault("orientation", "vertical")
-        kwargs.setdefault("padding", [dp(12), dp(10)])
-        kwargs.setdefault("spacing", dp(6))
+        # We use FloatLayout as the root so the button can float in the corner
         kwargs.setdefault("draw_panel", False)
         super().__init__(**kwargs)
 
@@ -747,16 +746,44 @@ class DataCard(Card):
         self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
         self._unit = unit
 
-        self.bind(
-            pos=self._draw_top_bar, size=self._draw_top_bar,
-            bg_color=self._draw_top_bar
+        # 1. Main container is now a RelativeLayout so children 
+        # position relative to this card's boundaries
+        self.container = RelativeLayout()
+        
+        # 2. THE BUTTON (Visual only)
+        # We anchor it to top-right with a small offset (padding)
+        self.graph_btn_visual = Label(
+            text="CLICK FOR GRAPH",
+            font_name=FONT_NAME,
+            font_size=sp(10),
+            bold=True,
+            color=ACCENT,
+            size_hint=(None, None),
+            size=(dp(90), dp(23)),
+            pos_hint={'top': 0.95, 'right': 0.95}
         )
-        Clock.schedule_once(self._draw_top_bar)
 
-        self.add_widget(
+        with self.graph_btn_visual.canvas.before:
+            Color(*with_alpha(ACCENT, 0.1))
+            self.btn_bg = RoundedRectangle(radius=[dp(4)])
+            Color(*with_alpha(ACCENT, 0.3))
+            self.btn_border = Line(width=1.0)
+
+        self.graph_btn_visual.bind(pos=self._update_btn_ui, size=self._update_btn_ui)
+        
+        # 3. THE DATA CONTENT
+        # We wrap this in a BoxLayout and give it padding so it stays 
+        # away from the top-right corner where the button lives
+        self.content = BoxLayout(
+            orientation="vertical",
+            padding=[dp(12), dp(10), dp(12), dp(10)],
+            spacing=dp(4)
+        )
+
+        self.content.add_widget(
             make_label(
                 title.upper(),
-                font_size=sp(9),
+                font_size=sp(18),
                 color=DIM,
                 bold=True,
                 height=dp(16),
@@ -765,44 +792,90 @@ class DataCard(Card):
             )
         )
 
-        val_row = BoxLayout(orientation="horizontal",
-                            size_hint_y=1, spacing=dp(4))
-        val = make_label(
+        val_row = BoxLayout(orientation="horizontal", size_hint_y=1, spacing=dp(4))
+        self._value_lbl = make_label(
             self._fmt(value),
-            font_size=sp(24),
+            font_size=sp(32),
             color=NEUTRAL,
             bold=True,
             halign="left",
             size_hint=(1, 1),
             markup=True,
         )
-        self._value_lbl = val
 
-        arrow = DataArrow(
+        self._arrow = DataArrow(
             direction=direction,
             size_hint=(None, None),
             size=(dp(20), dp(20)),
             pos_hint={"center_y": 0.5},
         )
-        self._arrow = arrow
 
-        val_row.add_widget(val)
-        val_row.add_widget(arrow)
-        self.add_widget(val_row)
+        val_row.add_widget(self._value_lbl)
+        val_row.add_widget(self._arrow)
+        self.content.add_widget(val_row)
 
-        delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        delta_lbl = make_label(
+        self._delta_lbl = make_label(
             delta,
             font_size=sp(9),
-            color=delta_clr,
+            color=(UP_CLR if direction == "up" else DOWN_CLR),
             halign="right",
             height=dp(16),
-            shorten=True,
-            shorten_from="right",
         )
-        self._delta_lbl = delta_lbl
-        self.add_widget(delta_lbl)
+        self.content.add_widget(self._delta_lbl)
 
+        # Add both to the RelativeLayout
+        self.container.add_widget(self.content)
+        self.container.add_widget(self.graph_btn_visual)
+        self.add_widget(self.container)
+
+        self.bind(pos=self._draw_top_bar, size=self._draw_top_bar, bg_color=self._draw_top_bar)
+        Clock.schedule_once(self._draw_top_bar)
+
+    def _update_btn_ui(self, instance, value):
+        self.btn_bg.pos = instance.pos
+        self.btn_bg.size = instance.size
+        self.btn_border.rounded_rectangle = [instance.x, instance.y, instance.width, instance.height, dp(4)]
+
+    def _fmt(self, value):
+        if self._unit:
+            return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
+        return f"{value}"
+
+    def _draw_top_bar(self, *_):
+        self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r = float(self.radius)
+        with self.canvas.before:
+            Color(*self.bg_color)
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*self._bar_color)
+            RoundedRectangle(pos=(x + dp(12), y + dp(2)), size=(max(0, w - dp(24)), dp(2)), radius=[dp(1)])
+            Color(*OVERLAY_SUBTLE)
+            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
+            Color(*BORDER)
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
+
+    def update(self, value, direction, delta):
+        self._direction = direction
+        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        self._draw_top_bar()
+        self._value_lbl.text = self._fmt(value)
+        self._arrow.direction = direction
+        self._delta_lbl.text = delta
+        self._delta_lbl.color = UP_CLR if direction == "up" else DOWN_CLR
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            touch.ud[f"card_hit_{id(self)}"] = True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if touch.ud.get(f"card_hit_{id(self)}"):
+            if self.tap_callback:
+                self.tap_callback()
+            return True
+        return super().on_touch_up(touch)
     def _fmt(self, value):
         if self._unit:
             return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
