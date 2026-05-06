@@ -58,6 +58,7 @@ import random
 import math
 from kivymd.uix.label import MDIcon
 from kivy.uix.behaviors import ButtonBehavior
+from kivy.uix.relativelayout import RelativeLayout
 
 # Fonts
 FONT_NAME = "Roboto"
@@ -725,7 +726,7 @@ class SignUpPanel(BoxLayout):
         )
         if success:
             self._error.hide()
-            self.success_cb(self._selected_role)
+            self.success_cb({"role": self._selected_role, "fullname": name, "username": user})
         else:
             self._error.show("Username is taken. Please choose another.")
 
@@ -736,9 +737,7 @@ class SignUpPanel(BoxLayout):
 # Stat card
 class DataCard(Card):
     def __init__(self, title, value, unit, direction, delta, **kwargs):
-        kwargs.setdefault("orientation", "vertical")
-        kwargs.setdefault("padding", [dp(12), dp(10)])
-        kwargs.setdefault("spacing", dp(6))
+        # We use FloatLayout as the root so the button can float in the corner
         kwargs.setdefault("draw_panel", False)
         super().__init__(**kwargs)
 
@@ -747,16 +746,44 @@ class DataCard(Card):
         self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
         self._unit = unit
 
-        self.bind(
-            pos=self._draw_top_bar, size=self._draw_top_bar,
-            bg_color=self._draw_top_bar
+        # 1. Main container is now a RelativeLayout so children 
+        # position relative to this card's boundaries
+        self.container = RelativeLayout()
+        
+        # 2. THE BUTTON (Visual only)
+        # We anchor it to top-right with a small offset (padding)
+        self.graph_btn_visual = Label(
+            text="CLICK FOR GRAPH",
+            font_name=FONT_NAME,
+            font_size=sp(10),
+            bold=True,
+            color=ACCENT,
+            size_hint=(None, None),
+            size=(dp(90), dp(23)),
+            pos_hint={'top': 0.95, 'right': 0.95}
         )
-        Clock.schedule_once(self._draw_top_bar)
 
-        self.add_widget(
+        with self.graph_btn_visual.canvas.before:
+            Color(*with_alpha(ACCENT, 0.1))
+            self.btn_bg = RoundedRectangle(radius=[dp(4)])
+            Color(*with_alpha(ACCENT, 0.3))
+            self.btn_border = Line(width=1.0)
+
+        self.graph_btn_visual.bind(pos=self._update_btn_ui, size=self._update_btn_ui)
+        
+        # 3. THE DATA CONTENT
+        # We wrap this in a BoxLayout and give it padding so it stays 
+        # away from the top-right corner where the button lives
+        self.content = BoxLayout(
+            orientation="vertical",
+            padding=[dp(12), dp(10), dp(12), dp(10)],
+            spacing=dp(4)
+        )
+
+        self.content.add_widget(
             make_label(
                 title.upper(),
-                font_size=sp(9),
+                font_size=sp(18),
                 color=DIM,
                 bold=True,
                 height=dp(16),
@@ -765,44 +792,90 @@ class DataCard(Card):
             )
         )
 
-        val_row = BoxLayout(orientation="horizontal",
-                            size_hint_y=1, spacing=dp(4))
-        val = make_label(
+        val_row = BoxLayout(orientation="horizontal", size_hint_y=1, spacing=dp(4))
+        self._value_lbl = make_label(
             self._fmt(value),
-            font_size=sp(24),
+            font_size=sp(32),
             color=NEUTRAL,
             bold=True,
             halign="left",
             size_hint=(1, 1),
             markup=True,
         )
-        self._value_lbl = val
 
-        arrow = DataArrow(
+        self._arrow = DataArrow(
             direction=direction,
             size_hint=(None, None),
             size=(dp(20), dp(20)),
             pos_hint={"center_y": 0.5},
         )
-        self._arrow = arrow
 
-        val_row.add_widget(val)
-        val_row.add_widget(arrow)
-        self.add_widget(val_row)
+        val_row.add_widget(self._value_lbl)
+        val_row.add_widget(self._arrow)
+        self.content.add_widget(val_row)
 
-        delta_clr = UP_CLR if direction == "up" else DOWN_CLR
-        delta_lbl = make_label(
+        self._delta_lbl = make_label(
             delta,
             font_size=sp(9),
-            color=delta_clr,
+            color=(UP_CLR if direction == "up" else DOWN_CLR),
             halign="right",
             height=dp(16),
-            shorten=True,
-            shorten_from="right",
         )
-        self._delta_lbl = delta_lbl
-        self.add_widget(delta_lbl)
+        self.content.add_widget(self._delta_lbl)
 
+        # Add both to the RelativeLayout
+        self.container.add_widget(self.content)
+        self.container.add_widget(self.graph_btn_visual)
+        self.add_widget(self.container)
+
+        self.bind(pos=self._draw_top_bar, size=self._draw_top_bar, bg_color=self._draw_top_bar)
+        Clock.schedule_once(self._draw_top_bar)
+
+    def _update_btn_ui(self, instance, value):
+        self.btn_bg.pos = instance.pos
+        self.btn_bg.size = instance.size
+        self.btn_border.rounded_rectangle = [instance.x, instance.y, instance.width, instance.height, dp(4)]
+
+    def _fmt(self, value):
+        if self._unit:
+            return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
+        return f"{value}"
+
+    def _draw_top_bar(self, *_):
+        self.canvas.before.clear()
+        x, y = self.pos
+        w, h = self.size
+        r = float(self.radius)
+        with self.canvas.before:
+            Color(*self.bg_color)
+            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
+            Color(*self._bar_color)
+            RoundedRectangle(pos=(x + dp(12), y + dp(2)), size=(max(0, w - dp(24)), dp(2)), radius=[dp(1)])
+            Color(*OVERLAY_SUBTLE)
+            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
+            Color(*BORDER)
+            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
+
+    def update(self, value, direction, delta):
+        self._direction = direction
+        self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
+        self._draw_top_bar()
+        self._value_lbl.text = self._fmt(value)
+        self._arrow.direction = direction
+        self._delta_lbl.text = delta
+        self._delta_lbl.color = UP_CLR if direction == "up" else DOWN_CLR
+
+    def on_touch_down(self, touch):
+        if self.collide_point(*touch.pos):
+            touch.ud[f"card_hit_{id(self)}"] = True
+        return super().on_touch_down(touch)
+
+    def on_touch_up(self, touch):
+        if touch.ud.get(f"card_hit_{id(self)}"):
+            if self.tap_callback:
+                self.tap_callback()
+            return True
+        return super().on_touch_up(touch)
     def _fmt(self, value):
         if self._unit:
             return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
@@ -1159,6 +1232,7 @@ class AlertsPanel(BoxLayout):
 # Full-screen modal graph
 class GraphOverlay(FloatLayout):
     AVG_WINDOW = 20
+    _COMPARE_COLORS = [(1.0, 0.27, 0.27, 1), (1.0, 0.85, 0.20, 1)]
 
     def __init__(self, title, unit, site, timestamps,
                  values, stat_index=0, **kwargs):
@@ -1173,6 +1247,7 @@ class GraphOverlay(FloatLayout):
         self._stat_index = stat_index
         self._timestamps = timestamps
         self._values = values
+        self._compare_sites = {}
 
         is_researcher = (
             getattr(MDApp.get_running_app(), "user_role",
@@ -1369,6 +1444,71 @@ class GraphOverlay(FloatLayout):
         self._filter_err = ErrorLabel()
         panel.add_widget(self._filter_err)
 
+        compare_row = BoxLayout( # buttons to add/remove other sites for comparison
+            orientation="horizontal", size_hint_y=None,
+            height=dp(32), spacing=dp(6)
+        )
+        compare_row.add_widget(
+            Label(
+                text="Compare", font_size=sp(10), color=DIM,
+                size_hint_x=None, width=dp(58)
+            )
+        )
+        self._compare_btns = {} # site_key: btn for access in toggle and draw
+        for key in ("maize", "brassica", "orchard"):
+            btn = Button(
+                text=key.capitalize(),
+                font_name=FONT_NAME,
+                font_size=sp(11),
+                color=NEUTRAL,
+                size_hint_x=1,
+                background_normal="",
+                background_color=(0, 0, 0, 0),
+            )
+            btn._site_key = key
+            if key != self._site_key:
+                btn.bind(on_release=lambda b, k=key: self._toggle_compare_site(k))
+            btn.bind(pos=self._draw_compare_btn, size=self._draw_compare_btn)
+            self._compare_btns[key] = btn
+            compare_row.add_widget(btn)
+        panel.add_widget(compare_row)
+
+    def _toggle_compare_site(self, site_key): # add/remove a site to compare against
+        bridge = MDApp.get_running_app().bridge
+        start = self._from_input.text.strip() or None
+        end = self._to_input.text.strip() or None
+        if site_key in self._compare_sites:
+            del self._compare_sites[site_key]
+        else:
+            ts, vs = bridge.get_history(
+                site_key, self._stat_index, start_date=start, end_date=end
+            )
+            if vs:
+                self._compare_sites[site_key] = (ts, vs)
+        for btn in self._compare_btns.values():
+            self._draw_compare_btn(btn) # accent fill when active (current site or toggled on), grey outline when inactive
+        self._draw_graph()
+
+    def _draw_compare_btn(self, btn, *_):
+        active = (
+            btn._site_key == self._site_key or
+            btn._site_key in self._compare_sites
+        )
+        btn.canvas.before.clear()
+        with btn.canvas.before:
+            if active:
+                Color(*with_alpha(ACCENT, 0.15))
+                RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+                Color(*with_alpha(ACCENT, 0.5))
+            else:
+                Color(*OVERLAY_SUBTLE)
+                RoundedRectangle(pos=btn.pos, size=btn.size, radius=[dp(6)])
+                Color(*BORDER)
+            Line(
+                rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, dp(6)],
+                width=1,
+            )
+
     def _apply_filter(self, *_):
         start = self._from_input.text.strip() or None
         end = self._to_input.text.strip() or None
@@ -1397,6 +1537,12 @@ class GraphOverlay(FloatLayout):
             return
         self._timestamps = timestamps
         self._values = values
+        for sk in list(self._compare_sites): # refresh compare sites with same date filter, remove if no data in range
+            ts, vs = bridge.get_history(
+                sk, self._stat_index, start_date=start, end_date=end
+            )
+            if vs:
+                self._compare_sites[sk] = (ts, vs)
         self._draw_graph()
 
     def _draw_small_btn(self, btn, *_):
@@ -1469,8 +1615,11 @@ class GraphOverlay(FloatLayout):
         if not values:
             return
 
-        v_min = min(values)
-        v_max = max(values)
+        all_vals = list(values)
+        for _, vs in self._compare_sites.values():
+            all_vals.extend(vs)
+        v_min = min(all_vals)
+        v_max = max(all_vals)
         v_range = v_max - v_min if v_max != v_min else 1.0
 
         self._info_lbl.text = (
@@ -1499,8 +1648,8 @@ class GraphOverlay(FloatLayout):
         def to_px(v):
             return gy + ((v - v_min) / v_range) * gh
 
-        def to_x(i):
-            return gx + (i / (len(values) - 1)) * gw
+        def to_x(i, total):
+            return gx + (i / (total - 1)) * gw
 
         with w.canvas:
             # Grid lines
@@ -1518,22 +1667,32 @@ class GraphOverlay(FloatLayout):
             Color(*ACCENT)
             pts = []
             for i, v in enumerate(values):
-                pts += [to_x(i), to_px(v)]
+                pts += [to_x(i, len(values)), to_px(v)]
             Line(points=pts, width=dp(1.2))
 
             # Average line
             Color(*ACCENT2)
             avg_pts = []
             for i, v in enumerate(avg_values):
-                avg_pts += [to_x(i), to_px(v)]
+                avg_pts += [to_x(i, len(avg_values)), to_px(v)]
             Line(points=avg_pts, width=dp(1.5))
 
             # Endpoint dot
             Color(*ACCENT)
             Ellipse(
-                pos=(to_x(len(values) - 1) - dp(4), to_px(values[-1]) - dp(4)),
+                pos=(to_x(len(values) - 1, len(values)) - dp(4), to_px(values[-1]) - dp(4)),
                 size=(dp(8), dp(8)),
             )
+
+            # compare site lines
+            for ci, (_, (_, series_vals)) in enumerate(self._compare_sites.items()):
+                if len(series_vals) < 2:
+                    continue
+                Color(*self._COMPARE_COLORS[ci % len(self._COMPARE_COLORS)])
+                cpts = []
+                for i, v in enumerate(series_vals):
+                    cpts += [to_x(i, len(series_vals)), to_px(v)]
+                Line(points=cpts, width=dp(1.2))
 
         # Y labels
         N_GRID = 5
@@ -1559,7 +1718,7 @@ class GraphOverlay(FloatLayout):
         n = len(timestamps)
         x_indices = [int(i * (n - 1) / 4) for i in range(5)]
         for idx in x_indices:
-            px = to_x(idx)
+            px = to_x(idx, n)
             parts = timestamps[idx].split("-")
             short = f"{parts[1]}/{parts[0][2:]}" if len(parts) == 3 else timestamps[idx]
             lbl = Label(
