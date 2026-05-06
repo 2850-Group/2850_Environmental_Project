@@ -1,3 +1,32 @@
+'''
+Plant Disease Classification Training Pipeline
+
+This script downloads a disease image dataset, prepares it for training, builds a convolutional neural network usign transfer learning (MobileNetV2),
+and trains a model to classify crop diseases from leaf images
+
+Pipeline steps:
+1. Download dataset from KaggleHub
+2. Verify dataset structure (train/validation directories)
+3. Load images using tf.keras image_dataset_from_directory
+4. Cache, shuffle, and prefetch data
+5. Build a transfer learning model using MobileNetV2
+6. Train the model in two phases:
+    - Initial training with frozen base model
+    - Fine-tuning with partial unfreezing
+7. Save trained model and class labels for prediction use
+
+Key Components:
+    - Dataset: PlantVillage (KaggleHub)
+    - Input size: 128x128 RGB images
+    - Model: MobileNetV2
+    - Optimisation: Adam optimizer with transfer learning strategy
+    - Output: Trained .keras model + class_names.txt file
+
+Outputs:
+    - crop_disease_model.keras (trained model)
+    - class_names.txt (mapping of class indices to labels)
+'''
+
 import pathlib
 import os
 import kagglehub
@@ -25,15 +54,15 @@ val_dir = pathlib.Path(path)/ "PlantVillage" / "val"
 train_data = tf.keras.utils.image_dataset_from_directory(
     train_dir,
     seed = 42,
-    image_size = (224, 224),
-    batch_size = 32
+    image_size = (128, 128),
+    batch_size = 16
 )
 
 val_data = tf.keras.utils.image_dataset_from_directory(
     val_dir,
     seed = 42,
-    image_size = (224, 224),
-    batch_size = 32
+    image_size = (128, 128),
+    batch_size = 16
 )
 
 #Save class names
@@ -50,7 +79,7 @@ val_data = val_data.cache().prefetch(buffer_size = AUTOTUNE)
 
 #Build model
 base_model = tf.keras.applications.MobileNetV2(
-    input_shape = (224, 224, 3),
+    input_shape = (128, 128, 3),
     include_top = False,
     weights = 'imagenet'
 )
