@@ -54,10 +54,11 @@ class SignUpTest(unittest.TestCase) :
         screen._on_sign_up()
         screen._error.show.assert_called_once_with("All fields are required")
 
-    #TEST 5: User uses a username already in the database. Prequisite there must be a user profile with the username already stored in the database.
+    #TEST 5: User uses a username already in the database.
     def test_5_used_username(self):
-        screen = self.make_screen(username="i.martin")
-        screen._on_sign_up()
+        screen = self.make_screen(username="BobM")
+        with patch('Dashboard.sign_up_query', return_value=True):
+            screen._on_sign_up()
         screen._error.show.assert_called_once_with("Username is taken. Please choose another.")
 
     #TEST 6: User uses password less than 8 characters.
