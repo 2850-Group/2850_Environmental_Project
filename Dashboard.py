@@ -162,7 +162,7 @@ SCREEN_ORDER = ["dashboard", "scan", "profile"]
 
 
 def predict_image(img_path):
-    '''
+    """
     Takes captured image and runs it through model to
     predict crop type, disease and confidence level.
 
@@ -243,7 +243,7 @@ def make_label(
     height=dp(24),
     **kwargs
 ):
-    '''
+    """
     Creates and returns a configures Kivy Label widget
     with standardised styling
 
@@ -283,7 +283,7 @@ def make_label(
 
 # Card class
 class Card(BoxLayout):
-    '''
+    """
     A UI container widget styled as a card with rounded corners,
     background colour, border, and a top highlight
 
@@ -379,7 +379,7 @@ class DataArrow(Widget):
 
 # Used for modal/auth containers
 class RoundedCard(FloatLayout):
-    '''
+    """
     A custom container widget extending Kivy's FloatLayout that
     renders a rounded card with background, border, highlight,
     and optional shadow/elevation
@@ -572,7 +572,7 @@ class SignInButton(Button):
             size and and interaction state
         on_focus(instance, value): Handles focus changes and updates
             styling when the button gains or loses keyboard focus
-    '''
+    """
     def __init__(self, text="Sign In", **kwargs):
         super().__init__(
             text=text,
@@ -983,7 +983,7 @@ class SignUpPanel(BoxLayout):
 
 # Stat card
 class DataCard(Card):
-    '''
+    """
     A compact data display card uses to display a metric,
     its value, trend direction, and change indictator
 
@@ -1561,7 +1561,7 @@ class AlertsPanel(BoxLayout):
 
 # Full-screen modal graph
 class GraphOverlay(FloatLayout):
-    '''
+    """
     Full-screen overlay widget that displays an interactive time-series
     graph for a selected metric, with optional filtering
     Extends Kivy's FloatLayout
@@ -2808,7 +2808,8 @@ class ProfileScreen(Screen):
     -------
     _on_enter(*args): Refreshes displayed user information
         when the screen becomes active
-    '''
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
@@ -3022,7 +3023,7 @@ class DashboardHeader(BoxLayout):
 
 # App Root
 class DashboardApp(MDApp):
-    '''
+    """
     Main application class that initialises
     the environmental monitoring system
     Extends Kivy's MDApp and handles:
