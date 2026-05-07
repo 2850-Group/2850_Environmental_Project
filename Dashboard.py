@@ -2806,7 +2806,7 @@ class ProfileScreen(Screen):
 
     Methods
     -------
-    on_enter(*args): Refreshes displayed user information
+    _on_enter(*args): Refreshes displayed user information
         when the screen becomes active
     '''
     def __init__(self, **kwargs):
@@ -2925,7 +2925,7 @@ class ProfileScreen(Screen):
         sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
         layout.add_widget(sign_out_btn)
 
-    def on_enter(self, *_):
+    def _on_enter(self, *_):
         """Refresh labels whenever the screen is viewed"""
         self.name_lbl.text = self.app.user_fullname
         self.user_lbl.text = f"@{self.app.user_username}"
