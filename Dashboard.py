@@ -23,6 +23,10 @@ Dependencies:
 """
 
 #All imports and dependencies
+import os
+os.environ["KIVY_CAMERA"] = "opencv"
+from kivy.config import Config
+Config.set('kivy', 'keyboard_mode', 'dock') #dock creates at the bottom of the screen
 from kivymd.app import MDApp
 from kivy.uix.screenmanager import (ScreenManager, Screen,
                                     SlideTransition, NoTransition)
@@ -63,7 +67,6 @@ from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
 import sqlite3
 import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
 from Code.bridge import Bridge, DATASET_START
 from datetime import datetime
@@ -95,9 +98,6 @@ DB_PATH = os.path.join(
 )
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
-
-#Creating camera connection
-os.environ["KIVY_CAMERA"] = "opencv"
 
 #Loading Sequential model into application
 print("Loading model")
@@ -271,7 +271,6 @@ def make_label(
     lbl = Label(**kwargs)
     lbl.bind(size=lambda w, s: setattr(w, "text_size", (s[0], None)))
     return lbl
-
 
 # Card class
 class Card(BoxLayout):
@@ -476,7 +475,6 @@ class Input(TextInput):
             padding=[dp(12), dp(13), dp(12), dp(11)],
             size_hint=(1, None),
             height=dp(46),
-            write_tab=False,
             **kwargs,
         )
 
