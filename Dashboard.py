@@ -1002,11 +1002,9 @@ class DataCard(Card):
         self.graph_btn_visual = Label(
             text="CLICK FOR GRAPH",
             font_name=FONT_NAME,
-            font_size=sp(10),
             bold=True,
             color=ACCENT,
-            size_hint=(None, None),
-            size=(dp(90), dp(23)),
+            size_hint=(0.25, 0.15),
             pos_hint={'top': 0.95, 'right': 0.95}
         )
 
@@ -1089,7 +1087,8 @@ class DataCard(Card):
         self.btn_bg.pos = instance.pos
         self.btn_bg.size = instance.size
         self.btn_border.rounded_rectangle = [instance.x, instance.y, instance.width, instance.height, dp(4)]
-
+        instance.font_size = instance.height * 0.45
+        
     def _fmt(self, value):
         if self._unit:
             return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
