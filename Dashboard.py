@@ -2871,10 +2871,35 @@ class ProfileScreen(Screen):
             row.add_widget(val_lbl)
             layout.add_widget(row)
             if label == "Role":
-                self._role_value_lbl = val_lbl
+                            self._role_value_lbl = val_lbl
+        layout.add_widget(Widget())  # spacer pushes button to bottom
+            
+        sign_out_btn = Button(
+            text="Sign Out",
+            font_size=sp(14),
+            bold=True,
+            color=DOWN_CLR,
+            background_normal="",
+            background_color=(0, 0, 0, 0),
+            size_hint=(1, None),
+            height=dp(50),
+        )
 
-        layout.add_widget(Widget())
         self.add_widget(layout)
+
+        def _draw_signout_btn(btn, *_):
+            btn.canvas.before.clear()
+            with btn.canvas.before:
+                r = float(RADIUS_SM)
+                fill = with_alpha(DOWN_CLR, 0.08) if btn.state == "down" else with_alpha(DOWN_CLR, 0.0)
+                Color(*fill)
+                RoundedRectangle(pos=btn.pos, size=btn.size, radius=[r])
+                Color(*with_alpha(DOWN_CLR, 0.45))
+                Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, r], width=1.0)
+
+        sign_out_btn.bind(pos=_draw_signout_btn, size=_draw_signout_btn, state=_draw_signout_btn)
+        sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
+        layout.add_widget(sign_out_btn)
 
     def on_enter(self, *_):
         """Refresh labels whenever the screen is viewed"""
@@ -3061,6 +3086,14 @@ class DashboardApp(MDApp):
         self._root.add_widget(self._app_sm)
 
         self._root.add_widget(self._nav)
+
+    def sign_out(self):
+        self._app_sm.transition = NoTransition()
+        self._app_sm.current = "dashboard"
+        self._nav._set_active("dashboard")
+        self._root.clear_widgets()
+        self._root.add_widget(self.sm)
+        self.sm.current = "login"
 
 
 if __name__ == "__main__":
