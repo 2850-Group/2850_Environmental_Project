@@ -4,6 +4,8 @@ pip install kivy
 pip install bcrypt
 pip install opencv-python
 pip install kivymd
+pip install python-dateutil
+pip install tensorflow
 """
 
 from kivymd.app import MDApp
