@@ -2838,7 +2838,7 @@ class ProfileScreen(Screen):
         layout.add_widget(Widget())
         self.add_widget(layout)
 
-    def on_enter(self, *_):
+    def _on_enter(self, *_):
         """Refresh labels whenever the screen is viewed"""
         self.name_lbl.text = self.app.user_fullname
         self.user_lbl.text = f"@{self.app.user_username}"
