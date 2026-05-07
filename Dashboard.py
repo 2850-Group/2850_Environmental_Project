@@ -4,7 +4,7 @@ Author: Holly, Ashwin, Liam, Sara, Izzy
 Created: 20/03/26
 Last modified: 05/05/26
 
-Description: This file creates all of the visuals seen on the application and 
+Description: This file creates all of the visuals seen on the application and
              performs AI functionalities and API connection
 
 Dependencies:
@@ -22,14 +22,15 @@ Dependencies:
 - threading
 """
 
-#All imports and dependencies
+# All imports and dependencies
 import os
+
 os.environ["KIVY_CAMERA"] = "opencv"
 from kivy.config import Config
-Config.set('kivy', 'keyboard_mode', 'dock') #dock creates at the bottom of the screen
+
+Config.set("kivy", "keyboard_mode", "dock")  # dock creates at the bottom of the screen
 from kivymd.app import MDApp
-from kivy.uix.screenmanager import (ScreenManager, Screen,
-                                    SlideTransition, NoTransition)
+from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
@@ -67,6 +68,7 @@ from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
 import sqlite3
 import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "Code"))
 from Code.bridge import Bridge, DATASET_START
 from datetime import datetime
@@ -92,35 +94,35 @@ try:
 except Exception:
     FONT_NAME = "Roboto"
 
-#Creating a database connection
+# Creating a database connection
 DB_PATH = os.path.join(
     os.path.dirname(__file__), "Code", "Database", "Queries", "pest_control.db"
 )
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 
-#Loading Sequential model into application
+# Loading Sequential model into application
 print("Loading model")
-model = tf.keras.models.load_model('crop_disease_model.keras', safe_mode=False)
-with open ("class_names.txt") as f:
+model = tf.keras.models.load_model("crop_disease_model.keras", safe_mode=False)
+with open("class_names.txt") as f:
     CLASS_NAMES = f.read().splitlines()
 SAVE_DIR = "captured_crops"
-os.makedirs(SAVE_DIR, exist_ok = True)
+os.makedirs(SAVE_DIR, exist_ok=True)
 
-#Colour Palette
-BG         = (0.06, 0.07, 0.10, 1)      # near-black page bg
-CARD_BG    = (0.11, 0.13, 0.18, 1)      # card bg
-SURFACE2   = (0.15, 0.18, 0.24, 1)      # slightly lighter surface
-ACCENT     = (0.22, 0.60, 0.95, 1)      # blue accent
-ACCENT2    = (0.15, 0.82, 0.68, 1)      # teal
-UP_CLR     = (0.20, 0.85, 0.50, 1)      # green = rising
-DOWN_CLR   = (0.95, 0.35, 0.35, 1)      # red = falling
-NEUTRAL    = (0.85, 0.85, 0.85, 1)      # neutral text
-DIM        = (0.50, 0.55, 0.62, 1)      # secondary text
-BAR_BG     = (0.08, 0.10, 0.14, 1)      # bottom bar bg
-BORDER     = (0.20, 0.23, 0.30, 1)      # card border colour
-ALERT_WARN = (1.00, 0.72, 0.20, 1)      # amber warning
-ALERT_CRIT = (0.95, 0.30, 0.30, 1)      # red critical
+# Colour Palette
+BG = (0.06, 0.07, 0.10, 1)  # near-black page bg
+CARD_BG = (0.11, 0.13, 0.18, 1)  # card bg
+SURFACE2 = (0.15, 0.18, 0.24, 1)  # slightly lighter surface
+ACCENT = (0.22, 0.60, 0.95, 1)  # blue accent
+ACCENT2 = (0.15, 0.82, 0.68, 1)  # teal
+UP_CLR = (0.20, 0.85, 0.50, 1)  # green = rising
+DOWN_CLR = (0.95, 0.35, 0.35, 1)  # red = falling
+NEUTRAL = (0.85, 0.85, 0.85, 1)  # neutral text
+DIM = (0.50, 0.55, 0.62, 1)  # secondary text
+BAR_BG = (0.08, 0.10, 0.14, 1)  # bottom bar bg
+BORDER = (0.20, 0.23, 0.30, 1)  # card border colour
+ALERT_WARN = (1.00, 0.72, 0.20, 1)  # amber warning
+ALERT_CRIT = (0.95, 0.30, 0.30, 1)  # red critical
 # Theme
 APP_NAME = "Environmental Dashboard"
 
@@ -158,9 +160,11 @@ Window.clearcolor = BG
 # Screen slide direction order
 SCREEN_ORDER = ["dashboard", "scan", "profile"]
 
+
 def predict_image(img_path):
-    '''
-    Takes captured image and runs it through model to predict crop type, disease and confidence level.
+    """
+    Takes captured image and runs it through model to
+    predict crop type, disease and confidence level.
 
     Parameters
     ----------
@@ -174,40 +178,42 @@ def predict_image(img_path):
     confidence (float):
         Percentage confidence of prediction outcome
 
-    '''
+    """
     img = PILImage.open(img_path).convert("RGB").resize((128, 128))
     arr = np.array(img, dtype=np.float32)
-    print(f"Image mean pixel value: {arr.mean():.2f}")  
+    print(f"Image mean pixel value: {arr.mean():.2f}")
     if arr.mean() < 5.0:
         return "Error: black image captured - try again", 0.0
-    arr = np.expand_dims(arr, axis = 0)
+    arr = np.expand_dims(arr, axis=0)
     prediction = model.predict(arr)
     top_index = int(np.argmax(prediction[0]))
     confidence = float(prediction[0][top_index]) * 100
     label = CLASS_NAMES[top_index].replace("___", " - ").replace("_", " ")
     return label, confidence
 
+
 def with_alpha(color, a):
-    '''
+    """
     Returns a new RGBA colour tuple with the specified alpha value
 
     Parameters
     ----------
     color (tuple):
-        A 4-tuple representing a RGBA color(r, g, b, a), original alpha value is ignored
+        A 4-tuple representing a RGBA color(r, g, b, a),
+        original alpha value is ignored
     a (float or int):
         The new alpha value
-    
+
     Returns
     -------
     tuple: A new RGBA tuple with an updated alpha value
-    '''
+    """
     r, g, b, _ = color
     return (r, g, b, a)
 
 
 def shade(color, factor):
-    '''
+    """
     Returns a shaded version of an RGBA colour by scaling its RGB components
     The RGB values are multipled by the given factor.
 
@@ -219,9 +225,10 @@ def shade(color, factor):
 
     Returns
     -------
-    tuple: A new RGBA colour tuple with adjusted RGB values and an unchanged alpha
+    tuple: A new RGBA colour tuple with adjusted RGB values and an
+    unchanged alpha
 
-    '''
+    """
     r, g, b, a = color
     return (min(1.0, r * factor), min(1.0, g * factor),
             min(1.0, b * factor), a)
@@ -235,9 +242,10 @@ def make_label(
     halign="left",
     height=dp(24),
     **kwargs,
-    ):
-    '''
-    Creates and returns a configures Kivy Label widget with standardised styling
+):
+    """
+    Creates and returns a configures Kivy Label widget with
+    standardised styling
 
     Parameters
     ----------
@@ -251,13 +259,13 @@ def make_label(
         Whether the text should be bold
     halign (int or float, optional):
         Fixed height of the label
-    **kwargs: 
+    **kwargs:
         Additional keyword arguments passed directly into Kivy Label
 
     Returns
     -------
     Label: A configured Kivy label instance
-    '''
+    """
     kwargs.setdefault("text", text)
     kwargs.setdefault("font_name", FONT_NAME)
     kwargs.setdefault("font_size", font_size)
@@ -272,21 +280,25 @@ def make_label(
     lbl.bind(size=lambda w, s: setattr(w, "text_size", (s[0], None)))
     return lbl
 
+
 # Card class
 class Card(BoxLayout):
-    '''
-    A UI container widget styled as a card with rounded corners, background colour, border, and a top highlight
+    """
+    A UI container widget styled as a card with rounded corners,
+    background colour, border, and a top highlight
 
-    Class extends Kivy's BoxLayout and provides a custom-drawn panel using canvas instructions
+    Class extends Kivy's BoxLayout and provides a custom-drawn panel using
+    canvas instructions
 
     Attributes:
         bg_color (ListProperty): Background RGBA colour of the card
         radius (NumericProperty): Corner radius for rounded edges
         draw_panel (BooleanProperty): Enables or disables custom drawing
-    
+
     Methods:
         _draw(*args): Redraws the card's canvas elements when properties change
-    '''
+    """
+
     bg_color = ListProperty(list(CARD_BG))
     radius = NumericProperty(RADIUS_MD)
     draw_panel = BooleanProperty(True)
@@ -315,17 +327,21 @@ class Card(BoxLayout):
 
 
 class DataArrow(Widget):
-    '''
-    A custom Kivy widget extending Kivy Widget class that displays an arrow indicating data trend direction
+    """
+    A custom Kivy widget extending Kivy Widget class that displays an arrow
+    indicating data trend direction
 
-    Arrow visually represents whether a value is above or below trend with an upward or downward pointing triangle
+    Arrow visually represents whether a value is above
+    or below trend with an upward or downward pointing triangle
 
     Attributes:
         direction (StringProperty): Direction of the arrow, "up" or "down"
-    
+
     Methods:
-        _draw(*args): Renders the arrow shape on the canvas based on size and direction
-    '''
+        _draw(*args): Renders the arrow shape on the canvas based on size and
+        direction
+    """
+
     direction = StringProperty("up")
 
     def __init__(self, **kwargs):
@@ -340,29 +356,49 @@ class DataArrow(Widget):
 
         # Determine Color and Shape
         if self.direction == "up":
-            clr = (0, 1, 0, 1) # Green
+            clr = (0, 1, 0, 1)  # Green
         elif self.direction == "down":
-            clr = (1, 0, 0, 1) # Red
+            clr = (1, 0, 0, 1)  # Red
         else:
-            clr = (1, 1, 1, 1) # White for "stable"[cite: 3]
+            clr = (1, 1, 1, 1)  # White for "stable"[cite: 3]
 
         with self.canvas:
             Color(*clr)
             if self.direction == "up":
-                Triangle(points=[nx-aw/2, ny-ah/4, nx+aw/2, ny-ah/4, nx, ny+ah/2])
+                Triangle(
+                    points=[
+                        nx - aw / 2,
+                        ny - ah / 4,
+                        nx + aw / 2,
+                        ny - ah / 4,
+                        nx,
+                        ny + ah / 2,
+                    ]
+                )
             elif self.direction == "down":
-                Triangle(points=[nx-aw/2, ny+ah/4, nx+aw/2, ny+ah/4, nx, ny-ah/2])
+                Triangle(
+                    points=[
+                        nx - aw / 2,
+                        ny + ah / 4,
+                        nx + aw / 2,
+                        ny + ah / 4,
+                        nx,
+                        ny - ah / 2,
+                    ]
+                )
             elif self.direction == "stable":
                 # White horizontal dash for no change
-                Line(points=[nx - aw/2, ny, nx + aw/2, ny], width=dp(1.5))
+                Line(points=[nx - aw / 2, ny, nx + aw / 2, ny], width=dp(1.5))
             else:
-                Line(points=[nx - aw/2, ny, nx + aw/2, ny], width=dp(1.5))
+                Line(points=[nx - aw / 2, ny, nx + aw / 2, ny], width=dp(1.5))
 
-                
+
 # Used for modal/auth containers
 class RoundedCard(FloatLayout):
-    '''
-    A custom container widget extending Kivy's FloatLayout that renders a rounded card with background, border, highlight, and optional shadow/elevation
+    """
+    A custom container widget extending Kivy's FloatLayout that
+    renders a rounded card with background, border, highlight,
+    and optional shadow/elevation
 
     Attributes:
         _bg (tuple): Background RGBA colour of the card
@@ -371,7 +407,8 @@ class RoundedCard(FloatLayout):
 
     Methods:
         _redraw(*args): Re-renders the card whenever position or size changes
-    '''
+    """
+
     def __init__(
         self, bg_color=CARD_BG, radius=RADIUS_LG, border_color=BORDER, **kwargs
     ):
@@ -412,14 +449,17 @@ class RoundedCard(FloatLayout):
 
 # Inline error label (hidden by default)
 class ErrorLabel(Label):
-    '''
-    An inline error message label extending Kivy Label for displaying validation or UI feedback messages, hidden by default
+    """
+    An inline error message label extending Kivy Label for displaying
+    validation or UI feedback messages, hidden by default
 
     Methods:
-        show(message): Displays the provided error message and makes the label visible
+        show(message): Displays the provided error message
+        and makes the label visible
         hide(): Clears the message and hides the label
 
-    '''
+    """
+
     def __init__(self, **kwargs):
         super().__init__(
             text="",
@@ -450,14 +490,15 @@ class ErrorLabel(Label):
 
 # Text input
 class Input(TextInput):
-    '''
+    """
     A custom style single-line text input extending Kivy's TextInput
 
     Parameters:
         hint(str): Placeholder text shown when input is empty
         password(bool): If true, masks input characters for password entry
         font_size (int or float, optional): Font size of the input text
-    '''
+    """
+
     def __init__(self, hint="", password=False, **kwargs):
         passed_font_size = kwargs.pop("font_size", sp(13))
         super().__init__(
@@ -480,8 +521,9 @@ class Input(TextInput):
 
 
 class InputField(BoxLayout):
-    '''
-    Styled input container extending Kivy's BoxLayout that wraps a custom Input widget
+    """
+    Styled input container extending Kivy's BoxLayout that wraps
+    a custom Input widget
 
     Attributes:
         _input(Input): The internal text input widget
@@ -490,16 +532,18 @@ class InputField(BoxLayout):
 
     Methods:
         _redraw(*args): Updates the background and border styling
-        _on_focus(instance, focused): Triggered when the input gains or loses focus - updates border styling
+        _on_focus(instance, focused): Triggered when the input gains or loses
+        focus - updates border styling
         text(str): Proxy property that returns the internal input's text
 
     Parameters:
         hint(str): Placeholder text shown when input is empty
         password(bool): If true, masks input characters for password entry
         font_size (int or float, optional): Font size of the input text
-    
-        
-    '''
+
+
+    """
+
     def __init__(self, hint="", password=False, font_size=sp(13), **kwargs):
         kwargs.setdefault("size_hint_y", None)
         kwargs.setdefault("height", dp(46))
@@ -525,11 +569,10 @@ class InputField(BoxLayout):
             self._bg.pos = self.pos
             self._bg.size = self.size
         self._border_group.clear()
-        self._border_group.add(Color(*(ACCENT if self._input.focus
-                                       else BORDER)))
+        self._border_group.add(Color(*(ACCENT if self._input.focus else BORDER)))
         self._border_group.add(
-            Line(rounded_rectangle=[*self.pos, *self.size,
-                                    float(RADIUS_SM)], width=1.0)
+            Line(rounded_rectangle=[*self.pos, *self.size, float(RADIUS_SM)],
+                 width=1.0)
         )
 
     def _on_focus(self, inst, focused):
@@ -542,13 +585,17 @@ class InputField(BoxLayout):
 
 
 class SignInButton(Button):
-    '''
+    """
     A custom styled button used for signing by extending Kivy's Button
 
-    Methods: 
-        _draw(*args): Renders the button background and border based on size and and interaction state
-        on_focus(instance, value): Handles focus changes and updates styling when the button gains or loses keyboard focus
-    '''
+    Methods:
+        _draw(*args): Renders the button background and border
+        based on size and and
+        interaction state on_focus(instance, value):
+        Handles focus changes and updates
+        styling when the button gains or loses keyboard focus
+    """
+
     def __init__(self, text="Sign In", **kwargs):
         super().__init__(
             text=text,
@@ -586,13 +633,17 @@ class SignInButton(Button):
 
 # Secondary button
 class SignUpButton(Button):
-    '''
-    A custom styled button used for signing up actions by extending Kivy's Button
+    """
+    A custom styled button used for signing up actions
+    by extending Kivy's Button
 
     Methods
     -------
-        _draw(*args): Renders the button background and border based on size and and interaction state
-    '''
+        _draw(*args): Renders the button background
+        and border based
+        on size and and interaction state
+    """
+
     def __init__(self, text="Sign Up", **kwargs):
         super().__init__(
             text=text,
@@ -636,7 +687,8 @@ class SignUpButton(Button):
 # Divider row
 class Divider(BoxLayout):
     """
-    A horizontal divider widget with optional centered text, used to separate sections
+    A horizontal divider widget with optional centered text,
+    used to separate sections
 
     Attributes
     ----------
@@ -687,14 +739,19 @@ class Divider(BoxLayout):
 
 
 class SignInPanel(BoxLayout):
-    '''
-    A UI panel for user sign-in, containing user input fields, buttons, and validation feedback
+    """
+    A UI panel for user sign-in, containing
+    user input fields, buttons,
+    and validation feedback
     Extends Kivy's BoxLayout
 
     Parameters
     ----------
-    switch_cb(callable): Callback function to switch to another panel
-    success_cb(callable): Callback function executed on successful sign-in, receiving user information as an argument
+    switch_cb(callable): Callback function to
+    switch to another panel
+    success_cb(callable): Callback function
+    executed on successful sign-in,
+    receiving user information as an argument
 
     Attributes
     ----------
@@ -705,8 +762,11 @@ class SignInPanel(BoxLayout):
     Methods
     -------
     _build(): Constructs and lays out all UI components
-    _on_sign_in(*args): Handles sign-in logic, validates input, and triggers success or error feedback
-    '''
+    _on_sign_in(*args): Handles sign-in logic,
+    validates input, and triggers
+    success or error feedback
+    """
+
     def __init__(self, switch_cb, success_cb, **kwargs):
         super().__init__(orientation="vertical", spacing=dp(12), **kwargs)
         self.switch_cb = switch_cb
@@ -716,8 +776,8 @@ class SignInPanel(BoxLayout):
     def _build(self):
         self.add_widget(
             make_label(
-                "Welcome", font_size=sp(28),
-                color=NEUTRAL, bold=True, height=dp(34)
+                "Welcome", font_size=sp(28), color=NEUTRAL,
+                bold=True, height=dp(34)
             )
         )
         self.add_widget(
@@ -777,21 +837,24 @@ class SignInPanel(BoxLayout):
 
 
 class SignUpPanel(BoxLayout):
-    '''
-    A UI panel for user sign-up, containing user input fields, buttons, and validation feedback
+    """
+    A UI panel for user sign-up, containing user input fields, buttons,
+    and validation feedback
     Extends Kivy's BoxLayout
 
     Parameters
     ----------
     switch_cb(callable): Callback function to switch to another panel
-    success_cb(callable): Callback function executed on successful sign-in, receiving user information as an argument
+    success_cb(callable): Callback function executed on successful sign-in,
+    receiving user information as an argument
 
     Attributes
     ----------
     username (InputField): Input field for the username
     password (InputField): Input field for the password
     fullname (InputField): Input field for the fullname of the user
-    _selected_role (str): Currently selected user role ("Farmer" or "Researcher")
+    _selected_role (str): Currently selected user role
+    ("Farmer" or "Researcher")
     _farmer_btn (Button):  Button for selecting the "Farmer" role
     _researcher_btn (Button): Button for selecting the "Researcher" role
     _error (ErrorLabel): Label used to display validation or login errors
@@ -800,10 +863,13 @@ class SignUpPanel(BoxLayout):
     -------
     _build(): Constructs and lays out all UI components
     _role_btn(label): Creates a selectable role button
-    _draw_role_btn(btn, *args): Draws and styles a role button based on selection state
+    _draw_role_btn(btn, *args): Draws and styles a role button based
+    on selection state
     _set_role(role): Updates the selected role and refreshes button styles
-    _on_sign_up(*args): Handles sign-up logic, validates input, and triggers success or error feedback
-    '''
+    _on_sign_up(*args): Handles sign-up logic, validates input, and triggers
+    success or error feedback
+    """
+
     def __init__(self, switch_cb, success_cb, **kwargs):
         super().__init__(
             orientation="vertical", spacing=dp(10), size_hint=(1, 1), **kwargs
@@ -912,8 +978,8 @@ class SignUpPanel(BoxLayout):
                 border = BORDER
             RoundedRectangle(pos=btn.pos, size=btn.size, radius=[r])
             Color(*border)
-            Line(rounded_rectangle=[btn.x, btn.y,
-                                    btn.width, btn.height, r], width=1.0)
+            Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, r],
+                 width=1.0)
 
     def _set_role(self, role):
         self._selected_role = role
@@ -937,7 +1003,10 @@ class SignUpPanel(BoxLayout):
         )
         if success:
             self._error.hide()
-            self.success_cb({"role": self._selected_role, "fullname": name, "username": user})
+            self.success_cb(
+                {"role": self._selected_role,
+                 "fullname": name, "username": user}
+            )
         else:
             self._error.show("Username is taken. Please choose another.")
 
@@ -947,8 +1016,9 @@ class SignUpPanel(BoxLayout):
 
 # Stat card
 class DataCard(Card):
-    '''
-    A compact data display card uses to display a metric, its value, trend direction, and change indictator
+    """
+    A compact data display card uses to display a metric,
+    its value, trend direction, and change indictator
 
     Extends Kivy's Card and includes:
     - Title label
@@ -982,7 +1052,8 @@ class DataCard(Card):
     update(value, direction, delta): Updates displayed data and styling
     on_touch_down(touch): Tracks touch interaction for tap detection
     on_touch_up(touch): Handles tap release and triggers callback if set
-    '''
+    """
+
     def __init__(self, title, value, unit, direction, delta, **kwargs):
         # We use FloatLayout as the root so the button can float in the corner
         kwargs.setdefault("draw_panel", False)
@@ -993,10 +1064,10 @@ class DataCard(Card):
         self._bar_color = UP_CLR if direction == "up" else DOWN_CLR
         self._unit = unit
 
-        # 1. Main container is now a RelativeLayout so children 
+        # 1. Main container is now a RelativeLayout so children
         # position relative to this card's boundaries
         self.container = RelativeLayout()
-        
+
         # 2. THE BUTTON (Visual only)
         # We anchor it to top-right with a small offset (padding)
         self.graph_btn_visual = Label(
@@ -1005,7 +1076,7 @@ class DataCard(Card):
             bold=True,
             color=ACCENT,
             size_hint=(0.25, 0.15),
-            pos_hint={'top': 0.95, 'right': 0.95}
+            pos_hint={"top": 0.95, "right": 0.95},
         )
 
         with self.graph_btn_visual.canvas.before:
@@ -1014,15 +1085,16 @@ class DataCard(Card):
             Color(*with_alpha(ACCENT, 0.3))
             self.btn_border = Line(width=1.0)
 
-        self.graph_btn_visual.bind(pos=self._update_btn_ui, size=self._update_btn_ui)
-        
+        self.graph_btn_visual.bind(pos=self._update_btn_ui,
+                                   size=self._update_btn_ui)
+
         # 3. THE DATA CONTENT
-        # We wrap this in a BoxLayout and give it padding so it stays 
+        # We wrap this in a BoxLayout and give it padding so it stays
         # away from the top-right corner where the button lives
         self.content = BoxLayout(
             orientation="vertical",
             padding=[dp(12), dp(10), dp(12), dp(10)],
-            spacing=dp(4)
+            spacing=dp(4),
         )
 
         self.content.add_widget(
@@ -1037,7 +1109,8 @@ class DataCard(Card):
             )
         )
 
-        val_row = BoxLayout(orientation="horizontal", size_hint_y=1, spacing=dp(4))
+        val_row = BoxLayout(orientation="horizontal",
+                            size_hint_y=1, spacing=dp(4))
         self._value_lbl = make_label(
             self._fmt(value),
             font_size=sp(32),
@@ -1060,11 +1133,11 @@ class DataCard(Card):
         self.content.add_widget(val_row)
 
         if direction == "up":
-            delta_color = (0, 1, 0, 1)    # Green (UP_CLR)
+            delta_color = (0, 1, 0, 1)  # Green (UP_CLR)
         elif direction == "down":
-            delta_color = (1, 0, 0, 1)    # Red (DOWN_CLR)
+            delta_color = (1, 0, 0, 1)  # Red (DOWN_CLR)
         else:
-            delta_color = (1, 1, 1, 1)    # White for "stable" or None
+            delta_color = (1, 1, 1, 1)  # White for "stable" or None
 
         self._delta_lbl = make_label(
             delta,
@@ -1080,74 +1153,24 @@ class DataCard(Card):
         self.container.add_widget(self.graph_btn_visual)
         self.add_widget(self.container)
 
-        self.bind(pos=self._draw_top_bar, size=self._draw_top_bar, bg_color=self._draw_top_bar)
+        self.bind(
+            pos=self._draw_top_bar, size=self._draw_top_bar,
+            bg_color=self._draw_top_bar
+        )
         Clock.schedule_once(self._draw_top_bar)
 
     def _update_btn_ui(self, instance, value):
         self.btn_bg.pos = instance.pos
         self.btn_bg.size = instance.size
-        self.btn_border.rounded_rectangle = [instance.x, instance.y, instance.width, instance.height, dp(4)]
+        self.btn_border.rounded_rectangle = [
+            instance.x,
+            instance.y,
+            instance.width,
+            instance.height,
+            dp(4),
+        ]
         instance.font_size = instance.height * 0.45
-        
-    def _fmt(self, value):
-        if self._unit:
-            return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
-        return f"{value}"
 
-    def _draw_top_bar(self, *_):
-        self.canvas.before.clear()
-        x, y = self.pos
-        w, h = self.size
-        r = float(self.radius)
-        with self.canvas.before:
-            Color(*self.bg_color)
-            RoundedRectangle(pos=(x, y), size=(w, h), radius=[r])
-            Color(*self._bar_color)
-            RoundedRectangle(pos=(x + dp(12), y + dp(2)), size=(max(0, w - dp(24)), dp(2)), radius=[dp(1)])
-            Color(*OVERLAY_SUBTLE)
-            Rectangle(pos=(x + dp(1), y + h - dp(1)), size=(max(0, w - dp(2)), dp(1)))
-            Color(*BORDER)
-            Line(rounded_rectangle=[x, y, w, h, r], width=1.0)
-
-    def update(self, value, direction, delta):
-        self._direction = direction
-        
-        # 1. Update the card's top accent bar color
-        if direction == "up":
-            self._bar_color = UP_CLR
-        elif direction == "down":
-            self._bar_color = DOWN_CLR
-        elif direction == "stable":
-            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
-        else:
-            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
-            
-        self._draw_top_bar()
-        self._value_lbl.text = self._fmt(value)
-        self._arrow.direction = direction
-        self._delta_lbl.text = delta
-        
-        # 2. Update the text color of the delta string
-        if direction == "up":
-            self._delta_lbl.color = UP_CLR
-        elif direction == "down":
-            self._delta_lbl.color = DOWN_CLR
-        elif direction == "stable":
-            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
-        else:
-            self._delta_lbl.color = (1, 1, 1, 1) # White for stable
-
-    def on_touch_down(self, touch):
-        if self.collide_point(*touch.pos):
-            touch.ud[f"card_hit_{id(self)}"] = True
-        return super().on_touch_down(touch)
-
-    def on_touch_up(self, touch):
-        if touch.ud.get(f"card_hit_{id(self)}"):
-            if self.tap_callback:
-                self.tap_callback()
-            return True
-        return super().on_touch_up(touch)
     def _fmt(self, value):
         if self._unit:
             return f"{value}[size={int(sp(11))}] {self._unit}[/size]"
@@ -1180,7 +1203,7 @@ class DataCard(Card):
         elif direction == "down":
             self._bar_color = DOWN_CLR
         else:
-            self._bar_color = (1, 1 , 1 ,1)
+            self._bar_color = (1, 1, 1, 1)
         self._draw_top_bar()
         self._value_lbl.text = self._fmt(value)
         self._arrow.direction = direction
@@ -1190,7 +1213,7 @@ class DataCard(Card):
         elif direction == "down":
             self._delta_lbl.color = DOWN_CLR
         else:
-            self._delta_lbl.color = (1, 1 , 1 ,1)
+            self._delta_lbl.color = (1, 1, 1, 1)
 
     def on_touch_down(self, touch):
         if self.collide_point(*touch.pos):
@@ -1223,9 +1246,10 @@ SAMPLE_ALERTS = [
 
 
 class AlertRow(BoxLayout):
-    '''
+    """
     Collapsible alert row widget used to display information about alerts.
-    Expands Kivy's BoxLayout - it is collapsed into a summary by default and can be expanded for additional information
+    Expands Kivy's BoxLayout - it is collapsed into a summary by default
+    and can be expanded for additional information
 
     Attributes
     ----------
@@ -1243,7 +1267,8 @@ class AlertRow(BoxLayout):
     _on_touch(widget, touch): Handles touch input and triggers toggle
     toggle(): Expands or collapses the row with animation
     _refresh_parent(): Forces parent layout update during animations
-    '''
+    """
+
     expanded = BooleanProperty(False)
 
     COLLAPSED_H = dp(48)
@@ -1256,7 +1281,7 @@ class AlertRow(BoxLayout):
         self.alert = alert
         self.height = self.COLLAPSED_H
 
-        # Defaults to white if status is 'all clear' or 
+        # Defaults to white if status is 'all clear' or
         # anything other than critical/warning
         if alert["level"] == "critical":
             clr = ALERT_CRIT
@@ -1359,8 +1384,7 @@ class AlertRow(BoxLayout):
     def toggle(self):
         self.expanded = not self.expanded
         target_h = self.EXPANDED_H if self.expanded else self.COLLAPSED_H
-        detail_h = (self.EXPANDED_H - self.COLLAPSED_H
-                    - dp(1))if self.expanded else 0
+        detail_h = (self.EXPANDED_H - self.COLLAPSED_H - dp(1)) if self.expanded else 0
         self._chevron.text = "▾" if self.expanded else "›"
 
         anim = Animation(height=target_h, duration=0.22, t="out_cubic")
@@ -1377,9 +1401,10 @@ class AlertRow(BoxLayout):
 
 
 class AlertsPanel(BoxLayout):
-    '''
+    """
     Collapsible panel that displats a list of alert rows with a header
-    Extends Kivy's BoxLayout to provide a container tfor multiple AlertRow components
+    Extends Kivy's BoxLayout to provide a container tfor multiple
+    AlertRow components
 
     Attributes
     ----------
@@ -1400,7 +1425,8 @@ class AlertsPanel(BoxLayout):
     toggle(): Expands or collapses the panel and updates layout
     update_alerts(alert_dicts): Updates the alert list and refreshes UI
     _render_rows(): Creates AlertRow widgets from alert data
-    '''
+    """
+
     expanded = BooleanProperty(True)
     HEADER_H = dp(36)
 
@@ -1462,8 +1488,8 @@ class AlertsPanel(BoxLayout):
             )
             Color(*with_alpha(BORDER, 1.0))
             badge_pill._bd = Line(
-                rounded_rectangle=[*badge_pill.pos, *badge_pill.size,
-                                   float(RADIUS_SM)],
+                rounded_rectangle=[*badge_pill.pos,
+                                   *badge_pill.size, float(RADIUS_SM)],
                 width=1.0,
             )
         badge_pill.bind(
@@ -1565,8 +1591,9 @@ class AlertsPanel(BoxLayout):
 
 # Full-screen modal graph
 class GraphOverlay(FloatLayout):
-    '''
-    Full-screen overlay widget that displays an interactive time-series graph for a selected metric, with optional filtering
+    """
+    Full-screen overlay widget that displays an interactive time-series
+    graph for a selected metric, with optional filtering
     Extends Kivy's FloatLayout
 
     Parameters
@@ -1605,7 +1632,8 @@ class GraphOverlay(FloatLayout):
     _dismiss(): Removes overlay from the window
     _rolling_avg(values, window): Computes rolling average of values
     _draw_graph(*args): Renders the graph, axes, labels, and data lines
-    '''
+    """
+
     AVG_WINDOW = 20
     _COMPARE_COLORS = [(1.0, 0.27, 0.27, 1), (1.0, 0.85, 0.20, 1)]
 
@@ -1625,8 +1653,8 @@ class GraphOverlay(FloatLayout):
         self._compare_sites = {}
 
         is_researcher = (
-            getattr(MDApp.get_running_app(), "user_role",
-                    "Farmer") == "Researcher"
+            getattr(MDApp.get_running_app(),
+                    "user_role", "Farmer") == "Researcher"
         )
 
         Window.bind(size=lambda _, s: setattr(self, "size", s))
@@ -1786,8 +1814,8 @@ class GraphOverlay(FloatLayout):
         filter_row.add_widget(self._from_input)
         filter_row.add_widget(
             Label(
-                text="To", font_size=sp(10), color=DIM,
-                size_hint_x=None, width=dp(20)
+                text="To", font_size=sp(10),
+                color=DIM, size_hint_x=None, width=dp(20)
             )
         )
         self._to_input = TextInput(
@@ -1819,17 +1847,21 @@ class GraphOverlay(FloatLayout):
         self._filter_err = ErrorLabel()
         panel.add_widget(self._filter_err)
 
-        compare_row = BoxLayout( # buttons to add/remove other sites for comparison
+        compare_row = BoxLayout(
+            # buttons to add/remove other sites for comparison
             orientation="horizontal", size_hint_y=None,
             height=dp(32), spacing=dp(6)
         )
         compare_row.add_widget(
             Label(
-                text="Compare", font_size=sp(10), color=DIM,
-                size_hint_x=None, width=dp(58)
+                text="Compare",
+                font_size=sp(10),
+                color=DIM,
+                size_hint_x=None,
+                width=dp(58),
             )
         )
-        self._compare_btns = {} # site_key: btn for access in toggle and draw
+        self._compare_btns = {}  # site_key: btn for access in toggle and draw
         for key in ("maize", "brassica", "orchard"):
             btn = Button(
                 text=key.capitalize(),
@@ -1842,13 +1874,15 @@ class GraphOverlay(FloatLayout):
             )
             btn._site_key = key
             if key != self._site_key:
-                btn.bind(on_release=lambda b, k=key: self._toggle_compare_site(k))
+                btn.bind(on_release=lambda b,
+                         k=key: self._toggle_compare_site(k))
             btn.bind(pos=self._draw_compare_btn, size=self._draw_compare_btn)
             self._compare_btns[key] = btn
             compare_row.add_widget(btn)
         panel.add_widget(compare_row)
 
-    def _toggle_compare_site(self, site_key): # add/remove a site to compare against
+    def _toggle_compare_site(self, site_key):
+        # add/remove a site to compare against
         bridge = MDApp.get_running_app().bridge
         start = self._from_input.text.strip() or None
         end = self._to_input.text.strip() or None
@@ -1861,14 +1895,17 @@ class GraphOverlay(FloatLayout):
             if vs:
                 self._compare_sites[site_key] = (ts, vs)
         for btn in self._compare_btns.values():
-            self._draw_compare_btn(btn) # accent fill when active (current site or toggled on), grey outline when inactive
+            self._draw_compare_btn(
+                btn
+            )
+            '''
+            accent fill when active (current site or toggled on),
+            grey outline when inactive
+            '''
         self._draw_graph()
 
     def _draw_compare_btn(self, btn, *_):
-        active = (
-            btn._site_key == self._site_key or
-            btn._site_key in self._compare_sites
-        )
+        active = btn._site_key == self._site_key or btn._site_key in self._compare_sites
         btn.canvas.before.clear()
         with btn.canvas.before:
             if active:
@@ -1912,7 +1949,13 @@ class GraphOverlay(FloatLayout):
             return
         self._timestamps = timestamps
         self._values = values
-        for sk in list(self._compare_sites): # refresh compare sites with same date filter, remove if no data in range
+        for sk in list(
+            self._compare_sites
+        ):
+            '''
+            refresh compare sites with same date filter,
+            remove if no data in range
+            '''
             ts, vs = bridge.get_history(
                 sk, self._stat_index, start_date=start, end_date=end
             )
@@ -1939,8 +1982,7 @@ class GraphOverlay(FloatLayout):
                 w.pos if BoxShadow is not None else (w.x, w.y - ELEV_Y)
             )
             self._panel_shadow.size = (
-                w.size if BoxShadow is not None else (w.width,
-                                                      w.height + ELEV_Y)
+                w.size if BoxShadow is not None else (w.width, w.height + ELEV_Y)
             )
         if hasattr(self, "_panel_border"):
             self._panel_border.rounded_rectangle = [
@@ -2055,7 +2097,10 @@ class GraphOverlay(FloatLayout):
             # Endpoint dot
             Color(*ACCENT)
             Ellipse(
-                pos=(to_x(len(values) - 1, len(values)) - dp(4), to_px(values[-1]) - dp(4)),
+                pos=(
+                    to_x(len(values) - 1, len(values)) - dp(4),
+                    to_px(values[-1]) - dp(4),
+                ),
                 size=(dp(8), dp(8)),
             )
 
@@ -2113,7 +2158,7 @@ class GraphOverlay(FloatLayout):
 
 # Site tab button
 class SiteButton(ButtonBehavior, BoxLayout):
-    '''
+    """
     UI button representing a site, combining an icon and label
     Extends Kivy's ButtonBehavior and BoxLayout
 
@@ -2137,7 +2182,8 @@ class SiteButton(ButtonBehavior, BoxLayout):
     -------
     _upd(*args): Updates background and indicator positions/sizes
     set_active(active): Updates styling based on whether the button is active
-    '''
+    """
+
     def __init__(self, site_key, icon_name, label_text, **kwargs):
         kwargs.setdefault("orientation", "vertical")
         kwargs.setdefault("spacing", dp(3))
@@ -2156,8 +2202,8 @@ class SiteButton(ButtonBehavior, BoxLayout):
             height=dp(22),
         )
         self.label_widget = make_label(
-            label_text, font_size=sp(18), color=DIM,
-            halign="center", height=dp(14)
+            label_text, font_size=sp(18),
+            color=DIM, halign="center", height=dp(14)
         )
 
         self.add_widget(self.icon_widget)
@@ -2199,7 +2245,7 @@ class SiteButton(ButtonBehavior, BoxLayout):
 
 
 class SiteSelectorBar(BoxLayout):
-    '''
+    """
     Horizontal navigation bar for selecting different sites.
     Extends Kivy's BoxLayout to create a row of SiteButton components
 
@@ -2215,11 +2261,14 @@ class SiteSelectorBar(BoxLayout):
 
     Methods
     -------
-    _upd(widget, *args): Updates background and border positions/sizes
-    _on_btn(button): Handles button press events and triggers selection callback
+    _upd(widget, *args): Updates background and
+    border positions/sizes
+    _on_btn(button): Handles button press events and
+    triggers selection callback
     set_active(site_key): Updates active state styling for all buttons
 
-    '''
+    """
+
     SITES = [
         ("maize", "leaf-circle-outline", "Maize"),
         ("brassica", "sprout-outline", "Brassica"),
@@ -2245,8 +2294,8 @@ class SiteSelectorBar(BoxLayout):
         self.bind(pos=self._upd, size=self._upd)
 
         for key, icon_name, label in self.SITES:
-            btn = SiteButton(site_key=key, icon_name=icon_name,
-                             label_text=label)
+            btn = SiteButton(site_key=key,
+                             icon_name=icon_name, label_text=label)
             btn.bind(on_release=self._on_btn)
             self._btns[key] = btn
             self.add_widget(btn)
@@ -2270,14 +2319,16 @@ class SiteSelectorBar(BoxLayout):
 
 # Bottom Navigation Bar
 class NavBar(BoxLayout):
-    '''
+    """
     Bottom navigation bar that controls screen switching
-    Extends Kivy's BoxLayout to create a widget for navigating between three screens (Dashboard, Scan and Profile) using a ScreenManager
+    Extends Kivy's BoxLayout to create a widget for navigating between
+    three screens (Dashboard, Scan and Profile) using a ScreenManager
     Visually highlights the currently active tab
 
     Properties
     ----------
-    screen_manager (ScreenManager): Kivy ScreenManager instance used to switch between screens
+    screen_manager (ScreenManager): Kivy ScreenManager
+    instance used to switch between screens
 
     Attributes
     ----------
@@ -2295,7 +2346,8 @@ class NavBar(BoxLayout):
     _nav(widget, touch): Handles navigation logic and screen transitions
         when a button is tapped
     _set_active(name): Updates visual state of navigation buttons
-    '''
+    """
+
     def __init__(self, screen_manager, **kwargs):
         # 1. FORCE size_hint_x to 1 so it fills the parent width automatically
         kwargs.setdefault("size_hint", (1, None))
@@ -2402,13 +2454,13 @@ class NavBar(BoxLayout):
 
 # Screens
 def make_bg(widget):
-    '''
+    """
     Applies a solid background colour to a Kivy widget
 
     Properties
     ----------
     widget(Widget): The Kivy widget to apply the background to
-    '''
+    """
     with widget.canvas.before:
         Color(*BG)
         rect = Rectangle(pos=widget.pos, size=widget.size)
@@ -2419,13 +2471,14 @@ def make_bg(widget):
 
 
 class SignInScreen(Screen):
-    '''
+    """
     Authetication screen that manages the sign-in and sign-up panels
     Extends Kivy's Screen to provide a container for user authentication panels
 
     Properties
     ----------
-    on_authenticated(callable): Callback function triggered when authentication succeeds
+    on_authenticated(callable): Callback function
+    triggered when authentication succeeds
 
     Attributes
     ----------
@@ -2436,7 +2489,8 @@ class SignInScreen(Screen):
     Methods
     -------
     _show_panel(name): Switches between login and signup panels
-    '''
+    """
+
     def __init__(self, on_authenticated, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
@@ -2492,7 +2546,7 @@ class SignInScreen(Screen):
 
 
 class DashboardScreen(Screen):
-    '''
+    """
     Main dashboard screen displaying real-time environmental data
     Extends Kivy's Screen
 
@@ -2518,7 +2572,8 @@ class DashboardScreen(Screen):
         Receives real-time updates from the data bridge and refreshes UI
     _update_body_bg(instance, value):
         Keeps the scrollable body background aligned with layout changes
-    '''
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
@@ -2575,8 +2630,8 @@ class DashboardScreen(Screen):
         self._cards = []
         for i in range(6):
             card = DataCard(
-                STAT_LABELS[i], "-", STAT_UNITS[i], "up", "",
-                bg_color=list(CARD_BG)
+                STAT_LABELS[i], "-", STAT_UNITS[i],
+                "up", "", bg_color=list(CARD_BG)
             )
             # capture i in closure
             card.tap_callback = (
@@ -2638,12 +2693,12 @@ class DashboardScreen(Screen):
 
         for i, card in enumerate(self._cards):
             val = f"{stats[i]:.1f}" if stats[i] is not None else "-"
-            
+
             # Ensure 'stable' is lowercase so DataArrow detects it
-            direction = str(flags[i]).lower() 
-                
+            direction = str(flags[i]).lower()
+
             card.update(val, direction, deltas[i])
-        
+
         self.alerts_panel.update_alerts(alerts)
 
     def on_bridge_tick(self, maize, brassica, orchard, timestamp):
@@ -2663,9 +2718,12 @@ class DashboardScreen(Screen):
 
 
 class ScanScreen(Screen):
-    '''
-    Camera-based plant scanning screen that captures images, performs basic validation, and runs a model to detect plant type and health
-    Screen provides a simple workflow: capture image -> validate image -> run ML prediciton -> display result
+    """
+    Camera-based plant scanning screen that captures images,
+    performs basic validation, and runs a model
+    to detect plant type and health
+    Screen provides a simple workflow: capture image -> validate image
+    -> run ML prediciton -> display result
 
     Attributes
     ----------
@@ -2678,9 +2736,12 @@ class ScanScreen(Screen):
     capture(instance): Disables UI and starts delayed capture process
     _do_capture(dt): Captures image from camera, saves it, validates it, and
         triggers analysis
-    analyse(filename): Runs inference in a background thread to avoid blocking UI
-    show_result(label, confidence): Displays prediction results and re-enables UI controls
-    '''
+    analyse(filename): Runs inference in a background thread to
+    avoid blocking UI
+    show_result(label, confidence): Displays prediction results
+    and re-enables UI controls
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
@@ -2698,14 +2759,19 @@ class ScanScreen(Screen):
             )
         )
 
-        layout.add_widget(Label(
-            text="Point camera at crop leaf and press Capture",
-            font_size=sp(12), color=DIM, halign="center",
-            size_hint=(1, None), height = dp(20)
-        ))
+        layout.add_widget(
+            Label(
+                text="Point camera at crop leaf and press Capture",
+                font_size=sp(12),
+                color=DIM,
+                halign="center",
+                size_hint=(1, None),
+                height=dp(20),
+            )
+        )
 
-        self.camera = Camera(play=True, index=0,
-                             size_hint=(1, 1))  # 0 = rear camera
+        self.camera = Camera(play=True,
+                             index=0, size_hint=(1, 1))
 
         layout.add_widget(self.camera)
 
@@ -2716,13 +2782,14 @@ class ScanScreen(Screen):
             halign="center",
             markup=True,
             size_hint=(1, None),
-            height=dp(60)
+            height=dp(60),
         )
 
         layout.add_widget(self.result_label)
 
         self.scan_btn = Button(
-            text="Capture", font_size=sp(14),
+            text="Capture",
+            font_size=sp(14),
             height=dp(48),
             background_color=(*ACCENT[:3], 1),
             color=NEUTRAL,
@@ -2738,7 +2805,6 @@ class ScanScreen(Screen):
         self.scan_btn.disabled = True
         self.result_label.text = "Analysing plant..."
         Clock.schedule_once(self._do_capture, 2.0)
-        
 
     def _do_capture(self, dt):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -2747,35 +2813,32 @@ class ScanScreen(Screen):
         check = PILImage.open(filename)
         check_arr = np.array(check)
         print(f"Saved PNG mean: {check_arr.mean():.2f}")
-    
+
         if check_arr.mean() < 5.0:
             self.result_label.text = "Black image captured - please try again"
             self.scan_btn.disabled = False
             self.scan_btn.text = "Capture"
             return  # don't run inference on a black image
-    
+
         self.analyse(filename)
-    
+
     def analyse(self, filename):
         def do_inference():
             label, confidence = predict_image(filename)
-            Clock.schedule_once(
-                lambda dt: self.show_result(label, confidence), 0
-            )
-    
-        threading.Thread(target=do_inference, daemon = True).start()
+            Clock.schedule_once(lambda dt: self.show_result(label,
+                                                            confidence), 0)
+
+        threading.Thread(target=do_inference, daemon=True).start()
 
     def show_result(self, label, confidence):
-        self.result_label.text =  (
-            f"[b]{label}[/b]\n"
-            f"Confidence: {confidence:.1f}%"
-        )
+        self.result_label.text = f"[b]{label}[/b]\n" f"Confidence: {confidence:.1f}%"
         self.result_label.text_size = (self.result_label.width, None)
         self.scan_btn.disabled = False
         self.scan_btn.text = "Scan Again"
 
+
 class ProfileScreen(Screen):
-    '''
+    """
     User profile screen displaying account information
 
     Attributes
@@ -2787,8 +2850,10 @@ class ProfileScreen(Screen):
 
     Methods
     -------
-    on_enter(*args): Refreshes displayed user information when the screen becomes active
-    '''
+    on_enter(*args): Refreshes displayed user information
+    when the screen becomes active
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         make_bg(self)
@@ -2868,9 +2933,9 @@ class ProfileScreen(Screen):
             row.add_widget(val_lbl)
             layout.add_widget(row)
             if label == "Role":
-                            self._role_value_lbl = val_lbl
+                self._role_value_lbl = val_lbl
         layout.add_widget(Widget())  # spacer pushes button to bottom
-            
+
         sign_out_btn = Button(
             text="Sign Out",
             font_size=sp(14),
@@ -2888,13 +2953,25 @@ class ProfileScreen(Screen):
             btn.canvas.before.clear()
             with btn.canvas.before:
                 r = float(RADIUS_SM)
-                fill = with_alpha(DOWN_CLR, 0.08) if btn.state == "down" else with_alpha(DOWN_CLR, 0.0)
+                fill = (
+                    with_alpha(DOWN_CLR, 0.08)
+                    if btn.state == "down"
+                    else with_alpha(DOWN_CLR, 0.0)
+                )
                 Color(*fill)
-                RoundedRectangle(pos=btn.pos, size=btn.size, radius=[r])
+                RoundedRectangle(pos=btn.pos,
+                                 size=btn.size, radius=[r])
                 Color(*with_alpha(DOWN_CLR, 0.45))
-                Line(rounded_rectangle=[btn.x, btn.y, btn.width, btn.height, r], width=1.0)
+                Line(
+                    rounded_rectangle=[btn.x, btn.y,
+                                       btn.width, btn.height, r],
+                    width=1.0,
+                )
 
-        sign_out_btn.bind(pos=_draw_signout_btn, size=_draw_signout_btn, state=_draw_signout_btn)
+        sign_out_btn.bind(
+            pos=_draw_signout_btn, size=_draw_signout_btn,
+            state=_draw_signout_btn
+        )
         sign_out_btn.bind(on_release=lambda *_: MDApp.get_running_app().sign_out())
         layout.add_widget(sign_out_btn)
 
@@ -2907,8 +2984,8 @@ class ProfileScreen(Screen):
 
 
 class DashboardHeader(BoxLayout):
-    '''
-    A top header displaying current date and time. 
+    """
+    A top header displaying current date and time.
 
     Attributes
     ----------
@@ -2918,10 +2995,13 @@ class DashboardHeader(BoxLayout):
 
     Methods
     -------
-    _upd(widget, *args): Updates the background position and size when layout changes
+    _upd(widget, *args): Updates the background position
+    and size when layout changes
 
-    update_time(dt_obj): Updates the displayed date and time based on a datetime object
-    '''
+    update_time(dt_obj): Updates the displayed date and
+    time based on a datetime object
+    """
+
     # Define these as None initially if you want to be safe,
     # but the order in __init__ is what matters most.
     date_lbl = None
@@ -2993,7 +3073,7 @@ class DashboardHeader(BoxLayout):
 
 # App Root
 class DashboardApp(MDApp):
-    '''
+    """
     Main application class that initialises the environmental monitoring system
     Extends Kivy's MDApp and handles:
     - User authentication state
@@ -3017,11 +3097,14 @@ class DashboardApp(MDApp):
     -------
     build():Constructs the application UI, initialises screens, and starts
         the data bridge
-    _on_keyboard_down(instance, keyboard, keycode, text, modifiers): Handles global keyboard input events
-    _on_login_success(user_info): Handles successful authentication, stores user data, and
+    _on_keyboard_down(instance, keyboard, keycode, text, modifiers):
+    Handles global keyboard input events
+    _on_login_success(user_info): Handles successful authentication,
+    stores user data, and
         switches from login screen to main application interface
 
-    '''
+    """
+
     user_fullname = StringProperty("Guest")
     user_username = StringProperty("guest.user")
     user_role = StringProperty("Farmer")
