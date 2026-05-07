@@ -1,13 +1,22 @@
 # 2850_Environmental_Project
+> COMP2850 - University of Leeds - COIL Group 1
 
-COIL 1 / Group Number: 3
+A mobile application that displays live crop sensor data to help farmers and agricultural workers detect pest and disease risks early, and monitor environmental conditions in the field.
 
-Holly Duncan 
+---
 
-Liam Hallinan
+### Prerequisites
+ 
+```
+pip install kivy kivymd bcrypt opencv-python python-dateutil tensorflow
+```
 
-Sara Alnajjar
+## Tech Stack
+ 
+Python · Kivy · KivyMD · SQLite · pandas · TensorFlow
+ 
 
-Ashwin Smith
-
-Isobel Martin
+ 
+## Documentation
+ 
+Full documentation, architecture overview, personas, user stories, and team info are available in the [Wiki](https://github.com/2850-Group/2850_Environmental_Project/wiki).
