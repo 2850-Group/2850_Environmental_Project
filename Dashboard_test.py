@@ -330,7 +330,67 @@ class DashboardTest(GraphicUnitTest):
         del overlay._compare_sites["brassica"]
         self.assertNotIn("brassica", overlay._compare_sites)
 
-    
+    #TEST 15: Export shows an error when there is no data to export
+    def test_15_export_csv_no_data(self):
+        overlay = self._make_overlay()
+        overlay._timestamps = []
+        overlay._values = []
+        overlay._export_status = MagicMock()
+        overlay._from_input = MagicMock()
+        overlay._from_input.text = ""
+        overlay._to_input = MagicMock()
+        overlay._to_input.text = ""
+        GraphOverlay._export_csv(overlay)
+        overlay._export_status.show.assert_called_once_with("No data to export")
+
+    #TEST 16: Export creates a correctly named file with the right headers and row count
+    def test_16_export_csv_file_structure(self):
+        import tempfile, csv as csv_mod, os as _os
+        timestamps = ["2022-01-02 00:00:00", "2022-01-02 00:15:00", "2022-01-02 00:30:00"]
+        values = [95.7, 98.5, 96.6]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('Dashboard.EXPORT_DIR', tmp):
+                overlay = self._make_overlay(timestamps=timestamps, values=values)
+                overlay._export_status = MagicMock()
+                overlay._from_input = MagicMock()
+                overlay._from_input.text = ""
+                overlay._to_input = MagicMock()
+                overlay._to_input.text = ""
+                GraphOverlay._export_csv(overlay)
+                filepath = _os.path.join(tmp, "maize_temperature_2022-01-02_2022-01-02.csv")
+                self.assertTrue(_os.path.exists(filepath))
+                with open(filepath) as f:
+                    rows = list(csv_mod.reader(f))
+                self.assertEqual(rows[0], ["timestamp", "maize_temperature"])
+                self.assertEqual(len(rows), 4)  # 1 header + 3 data rows
+
+    #TEST 17: Export writes compare site as extra column and uses empty string for missing timestamps
+    def test_17_export_csv_compare_site_gaps(self):
+        import tempfile, csv as csv_mod, os as _os
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('Dashboard.EXPORT_DIR', tmp):
+                overlay = self._make_overlay(
+                    timestamps=["2022-01-02 00:00:00", "2022-01-02 00:15:00"],
+                    values=[95.7, 98.5]
+                )
+                # Brassica only has the first timestamp, not the second
+                overlay._compare_sites = {
+                    "brassica": (["2022-01-02 00:00:00"], [80.1])
+                }
+                overlay._export_status = MagicMock()
+                overlay._from_input = MagicMock()
+                overlay._from_input.text = ""
+                overlay._to_input = MagicMock()
+                overlay._to_input.text = ""
+                GraphOverlay._export_csv(overlay)
+                filepath = _os.path.join(tmp, "maize_temperature_2022-01-02_2022-01-02.csv")
+                with open(filepath) as f:
+                    rows = list(csv_mod.reader(f))
+                self.assertIn("brassica_temperature", rows[0])
+                self.assertEqual(rows[1][2], "80.1")   # brassica value present
+                self.assertEqual(rows[2][2], "")        # brassica value missing
+
+
 
 
 """

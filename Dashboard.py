@@ -66,6 +66,7 @@ from kivy.core.text import LabelBase
 from kivy.uix.floatlayout import FloatLayout
 from kivy.animation import Animation
 from Code.Database.Queries.sign_in import sign_in_query, sign_up_query
+import csv
 import sqlite3
 import sys
 
@@ -108,6 +109,8 @@ with open("class_names.txt") as f:
     CLASS_NAMES = f.read().splitlines()
 SAVE_DIR = "captured_crops"
 os.makedirs(SAVE_DIR, exist_ok=True)
+EXPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exports")
+os.makedirs(EXPORT_DIR, exist_ok=True)
 
 # Colour Palette
 BG = (0.06, 0.07, 0.10, 1)      # near-black page bg
@@ -1595,6 +1598,9 @@ class GraphOverlay(FloatLayout):
     -------
     _build_researcher_ui(panel): Adds filtering UI for researcher users
     _apply_filter(*args): Validates and applies date filtering to dataset
+    _export_csv(*args): Exports the currently displayed dataset to a CSV file
+    _toggle_compare(*args): Toggles display of comparison data from another site
+    _draw_compare_btn(btn, *args): Draws the compare button with active/inactive styling
     _draw_small_btn(btn, *args): Draws styled button for filter controls
     _upd_panel(widget, *args): Updates panel position, size, and styling
     _redraw_dot(widget, pos, clr): Redraws legend indicator dots
@@ -1849,6 +1855,74 @@ class GraphOverlay(FloatLayout):
             self._compare_btns[key] = btn
             compare_row.add_widget(btn)
         panel.add_widget(compare_row)
+
+        export_row = BoxLayout(
+            orientation="horizontal", size_hint_y=None,
+            height=dp(32), spacing=dp(6)
+        )
+        export_btn = Button(
+            text="Export CSV",
+            font_size=sp(11),
+            color=NEUTRAL,
+            bold=True,
+            size_hint_x=None,
+            width=dp(90),
+            background_normal="",
+            background_color=(0, 0, 0, 0),
+        )
+        export_btn.bind(on_release=self._export_csv)
+        export_btn.bind(pos=self._draw_small_btn, size=self._draw_small_btn)
+        export_row.add_widget(export_btn)
+        self._export_status = ErrorLabel()
+        export_row.add_widget(self._export_status)
+        panel.add_widget(export_row)
+
+    def _export_csv(self, *_):
+        """
+        Exports the currently displayed dataset to a CSV file in /exports
+
+        filename states the site, metric, and date range (falling back to full range if empty)
+        if compare sties are active, their values are included as additional columns, aligned by timestamp
+
+        """
+        if not self._timestamps or not self._values:
+            self._export_status.color = ALERT_CRIT
+            self._export_status.show("No data to export")
+            return
+
+        stat_label = self._title.lower().replace(" ", "_")
+        # fall back to first/last timestamp if the date inputs are empty
+        from_date = (self._from_input.text.strip() or self._timestamps[0])[:10]
+        to_date = (self._to_input.text.strip() or self._timestamps[-1])[:10]
+        filename = f"{self._site_key}_{stat_label}_{from_date}_{to_date}.csv"
+        filepath = os.path.join(EXPORT_DIR, filename)
+
+        # primary site first, then any compare sites
+        compare_keys = list(self._compare_sites.keys())
+        header = ["timestamp", f"{self._site_key}_{stat_label}"]
+        for ck in compare_keys:
+            header.append(f"{ck}_{stat_label}")
+
+        compare_lookups = {}
+        for ck in compare_keys:
+            ts_list, vs_list = self._compare_sites[ck]
+            compare_lookups[ck] = dict(zip(ts_list, vs_list))
+
+        try:
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+                for ts, val in zip(self._timestamps, self._values):
+                    row = [ts, val]
+                    for ck in compare_keys:
+                        # empty string if compare site has no value at this timestamp
+                        row.append(compare_lookups[ck].get(ts, ""))
+                    writer.writerow(row)
+            self._export_status.color = ACCENT2
+            self._export_status.show(f"Saved: {filename}")
+        except Exception as e:
+            self._export_status.color = ALERT_CRIT
+            self._export_status.show(f"Export failed: {e}")
 
     def _toggle_compare_site(self, site_key):
         # add/remove a site to compare against
