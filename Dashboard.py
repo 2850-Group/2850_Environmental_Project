@@ -1149,9 +1149,9 @@ class DataCard(Card):
         elif direction == "down":
             self._bar_color = DOWN_CLR
         elif direction == "stable":
-            self._delta_lbl.color = (1, 1, 1, 1)  # White for stable
+            self._bar_color = (1, 1, 1, 1)  # White for stable
         else:
-            self._delta_lbl.color = (1, 1, 1, 1)  # White for stable
+            self._bar_color = (1, 1, 1, 1)  # White for stable
 
         self._draw_top_bar()
         self._value_lbl.text = self._fmt(value)
