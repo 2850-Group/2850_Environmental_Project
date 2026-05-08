@@ -2,6 +2,28 @@ import bcrypt
 
 
 def sign_in_query(conn, cursor, user, pwd):
+    """
+    SQL query to return user details on sign in request.
+
+    Parameters
+    ----------
+    conn :
+        Pre-established database connection.
+    cursor :
+        Pre-established database cursor.
+    user :
+        User input string of their username.
+    pwd :
+        Non-hashed version of user entered password.
+
+    Returns
+    -------
+    tuple
+        Returns tuple contain user details (role, fullname, username).
+    None
+        If password hash and username do not match.
+        
+    """
     pwd_byte = pwd.encode()
     query = """
         SELECT password_hash, role, fullname, username
@@ -16,6 +38,30 @@ def sign_in_query(conn, cursor, user, pwd):
 
 
 def sign_up_query(conn, cursor, name, user, pwd, fullname_val, role="Farmer"):
+    """
+    SQL query to add user details to the user table on sign up request.
+
+    Parameters
+    ----------
+    conn :
+        Pre-established database connection.
+    cursor :
+        Pre-established database cursor.
+    user :
+        User input string of their username.
+    pwd :
+        Non-hashed version of user entered password.
+    fullname_val:
+        User input string of their full name.
+    role:
+        Default as "Farmer". Describes the role of the user.
+
+    Returns
+    -------
+    Boolean
+        Returns true if the sign up request was successful. False if the username was already in the database.
+        
+    """
     pwd_byte = pwd.encode()
     salt = bcrypt.gensalt()
     pwd_hash = bcrypt.hashpw(pwd_byte, salt)
