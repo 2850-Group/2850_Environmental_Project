@@ -139,7 +139,7 @@ class Bridge:
         brassica_flags = self._compute_flags(brassica_stats, averages)
         orchard_flags = self._compute_flags(orchard_stats, averages)
 
-        # format deltas and convert allerts to dicts
+        # format deltas and convert alerts to dicts
         maize_deltas = self._format_deltas(maize_stats, averages)
         brassica_deltas = self._format_deltas(brassica_stats, averages)
         orchard_deltas = self._format_deltas(orchard_stats, averages)
@@ -148,7 +148,7 @@ class Bridge:
         brassica_alert_dicts = self._alerts_to_dicts(brassica_alerts)
         orchard_alert_dicts = self._alerts_to_dicts(orchard_alerts)
 
-        # these store latest data for each stie (dashboard should read this)
+        # these store latest data for each site (dashboard should read this)
         self.maize = {
             "stats": maize_stats,
             "flags": maize_flags,
@@ -350,31 +350,31 @@ class Bridge:
                     "detail": "Disease risk is critically high.Immediate action required.",
                 }
             )
+        elif disease_mod:
+            result.append(
+                {
+                    "level": LEVEL_WARNING,
+                    "title": "Moderate Disease Risk",
+                    "summary": f"Status: {status}",
+                    "detail": "Disease risk is elevated. Monitor closely. Apply preventative treatments.",
+                }
+            )
         if pest_outbreak:
             result.append(
                 {
                     "level": LEVEL_CRITICAL,
                     "title": "Pest Outbreak",
                     "summary": f"Status: {status}",
-                    "detail": "Pest outbreak detected. Immediate action required.",
+                    "detail": "Pest outbreak detected. Immediate action required. Prune severely infested areas.",
                 }
             )
-        if disease_mod:
-            result.append(
-                {
-                    "level": LEVEL_WARNING,
-                    "title": "Moderate Disease Risk",
-                    "summary": f"Status: {status}",
-                    "detail": "Disease risk is elevated. Monitor closely.",
-                }
-            )
-        if pest_action:
+        elif pest_action:
             result.append(
                 {
                     "level": LEVEL_WARNING,
                     "title": "Pest Action Required",
                     "summary": f"Status: {status}",
-                    "detail": "Pest levels require attention.",
+                    "detail": "Pest levels require attention. Isolate infested plants and spray with water.",
                 }
             )
 

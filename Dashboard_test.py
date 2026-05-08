@@ -317,7 +317,7 @@ class DashboardTest(GraphicUnitTest):
             valid = False
         self.assertTrue(valid)
 
-    #TEST 13: Check that graphs can compare sites 
+    #TEST 13: Check that graphs can compare sites
     def test_13_graph_adds_a_compare_site(self):
         overlay = self._make_overlay()
         overlay._compare_sites["brassica"] = (["2022-01-01"], [5.0])
@@ -401,7 +401,7 @@ Scanning Page Testing
 
 #TEST 2: Image capture is given a healthy tomato leaf
 
-#TEST 3: Image capture is gven an unhealthy tomato leaf
+#TEST 3: Image capture is given an unhealthy tomato leaf
 
 """
 Profile page Testing
