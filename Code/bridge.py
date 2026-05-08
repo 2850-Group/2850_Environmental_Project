@@ -13,7 +13,7 @@ DB_PATH = os.path.join(
     os.path.dirname(__file__), "Database", "Queries", "pest_control.db"
 )
 
-TICK_INTERVAL = 3  # seconds
+TICK_INTERVAL = 15  # seconds
 
 SITE_MAIZE = 0
 SITE_BRASSICA = 1
