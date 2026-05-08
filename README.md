@@ -24,7 +24,7 @@ source venv/bin/activate        # Mac/Linux
 venv\Scripts\activate           # Windows
 
 # 3. Install dependencies
-pip install kivy kivymd bcrypt opencv-python python-dateutil tensorflow
+pip install kivy kivymd bcrypt opencv-python python-dateutil tensorflow pytest
 
 # 4. Run the app
 python Dashboard.py
