@@ -465,7 +465,7 @@ class Bridge:
                 continue
             try:
                 values.append(float(val))
-                timestamps.append(str(r[0])[:10])
+                timestamps.append(str(r[0]))
             except (ValueError, TypeError):
                 continue
 
