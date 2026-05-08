@@ -8,7 +8,7 @@ A mobile application that displays live crop sensor data to help farmers and agr
 ### Prerequisites
 
 ```
-pip install kivy kivymd bcrypt opencv-python python-dateutil tensorflow
+pip install kivy kivymd bcrypt opencv-python python-dateutil tensorflow pytest
 ```
 
 ### Setup
